@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added "auto" theme option that automatically switches between dark and light themes based on system settings via DBus (FreeDesktop portal). Falls back to terminal background detection when DBus is unavailable. Theme selector now includes "auto" as an option.
+
 ## [0.52.9] - 2026-02-08
 
 ### New Features

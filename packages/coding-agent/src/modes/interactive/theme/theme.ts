@@ -6,6 +6,7 @@ import { TypeCompiler } from "@sinclair/typebox/compiler";
 import chalk from "chalk";
 import { highlight, supportsLanguage } from "cli-highlight";
 import { getCustomThemesDir, getThemesDir } from "../../../config.js";
+import { type ClientInterface, sessionBus, type Variant } from "dbus-next";
 
 // ============================================================================
 // Types & Schema
@@ -452,7 +453,7 @@ function getBuiltinThemes(): Record<string, ThemeJson> {
 }
 
 export function getAvailableThemes(): string[] {
-	const themes = new Set<string>(Object.keys(getBuiltinThemes()));
+	const themes = new Set<string>(["auto", ...Object.keys(getBuiltinThemes())]);
 	const customThemesDir = getCustomThemesDir();
 	if (fs.existsSync(customThemesDir)) {
 		const files = fs.readdirSync(customThemesDir);
@@ -477,6 +478,9 @@ export function getAvailableThemesWithPaths(): ThemeInfo[] {
 	const themesDir = getThemesDir();
 	const customThemesDir = getCustomThemesDir();
 	const result: ThemeInfo[] = [];
+
+	// Add "auto" as a special theme
+	result.push({ name: "auto", path: undefined });
 
 	// Built-in themes
 	for (const name of Object.keys(getBuiltinThemes())) {
@@ -602,6 +606,12 @@ export function loadThemeFromPath(themePath: string, mode?: ColorMode): Theme {
 }
 
 function loadTheme(name: string, mode?: ColorMode): Theme {
+	// "auto" resolves to dark or light based on terminal detection
+	// (DBus will update later if available)
+	if (name === "auto") {
+		const detected = detectTerminalBackground();
+		return loadTheme(detected, mode);
+	}
 	const registeredTheme = registeredThemes.get(name);
 	if (registeredTheme) {
 		return registeredTheme;
@@ -615,6 +625,100 @@ export function getThemeByName(name: string): Theme | undefined {
 		return loadTheme(name);
 	} catch {
 		return undefined;
+	}
+}
+
+// ============================================================================
+// DBus Dark Mode Detection
+// ============================================================================
+
+let dbusColorSchemeWatcher:
+	| {
+			iface: ClientInterface;
+			listener: (namespace: string, key: string, value: Variant) => void;
+	  }
+	| undefined;
+
+/**
+ * Request initial color scheme from DBus and update theme if on "auto".
+ * This is called once during watcher setup to get the initial value.
+ */
+function requestInitialDBusColorScheme(): void {
+	try {
+		const bus = sessionBus();
+		bus.getProxyObject("org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop")
+			.then((obj) => {
+				const iface = obj.getInterface("org.freedesktop.portal.Settings");
+				return iface.Read("org.gnome.desktop.interface", "color-scheme");
+			})
+			.then((variant) => {
+				// Only update if we're still on "auto"
+				if (currentThemeName === "auto") {
+					const colorScheme = variant.value;
+					const isDark = typeof colorScheme === "string" && colorScheme.includes("dark");
+					const newTheme = isDark ? "dark" : "light";
+					setGlobalTheme(loadTheme(newTheme));
+					if (onThemeChangeCallback) {
+						onThemeChangeCallback();
+					}
+				}
+			})
+			.catch(() => {
+				// Ignore errors - will use terminal detection fallback
+			});
+	} catch (_error) {
+		// DBus not available
+	}
+}
+
+/**
+ * Start monitoring DBus for color scheme changes.
+ * Automatically switches between "dark" and "light" themes when theme is set to "auto".
+ */
+function startDBusColorSchemeWatcher(): void {
+	// Stop existing watcher if any
+	stopDBusColorSchemeWatcher();
+
+	try {
+		const bus = sessionBus();
+		bus.getProxyObject("org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop")
+			.then((obj) => {
+				const iface = obj.getInterface("org.freedesktop.portal.Settings");
+
+				// Listen for SettingChanged signals
+				const listener = (namespace: string, key: string, value: Variant) => {
+					if (namespace === "org.gnome.desktop.interface" && key === "color-scheme") {
+						// Only auto-switch if theme is set to "auto"
+						if (currentThemeName === "auto") {
+							const colorScheme = value.value;
+							const isDark = typeof colorScheme === "string" && colorScheme.includes("dark");
+							const newTheme = isDark ? "dark" : "light";
+							setGlobalTheme(loadTheme(newTheme));
+							if (onThemeChangeCallback) {
+								onThemeChangeCallback();
+							}
+						}
+					}
+				};
+
+				iface.on("SettingChanged", listener);
+				dbusColorSchemeWatcher = { iface, listener };
+			})
+			.catch(() => {
+				// DBus not available - ignore
+			});
+	} catch (_error) {
+		// DBus not available - ignore
+	}
+
+	// Request initial value
+	requestInitialDBusColorScheme();
+}
+
+function stopDBusColorSchemeWatcher(): void {
+	if (dbusColorSchemeWatcher) {
+		dbusColorSchemeWatcher.iface.off("SettingChanged", dbusColorSchemeWatcher.listener);
+		dbusColorSchemeWatcher = undefined;
 	}
 }
 
@@ -634,7 +738,7 @@ function detectTerminalBackground(): "dark" | "light" {
 }
 
 function getDefaultTheme(): string {
-	return detectTerminalBackground();
+	return "auto";
 }
 
 // ============================================================================
@@ -680,11 +784,14 @@ export function initTheme(themeName?: string, enableWatcher: boolean = false): v
 		if (enableWatcher) {
 			startThemeWatcher();
 		}
+		// Always start DBus watcher - it only acts when theme is "auto"
+		startDBusColorSchemeWatcher();
 	} catch (_error) {
-		// Theme is invalid - fall back to dark theme silently
-		currentThemeName = "dark";
-		setGlobalTheme(loadTheme("dark"));
-		// Don't start watcher for fallback theme
+		// Theme is invalid - fall back to auto theme silently
+		currentThemeName = "auto";
+		setGlobalTheme(loadTheme("auto"));
+		startDBusColorSchemeWatcher();
+		// Don't start file watcher for fallback theme
 	}
 }
 
@@ -695,15 +802,17 @@ export function setTheme(name: string, enableWatcher: boolean = false): { succes
 		if (enableWatcher) {
 			startThemeWatcher();
 		}
+		// DBus watcher is always running, just update currentThemeName
+		// Watcher will only act when currentThemeName === "auto"
 		if (onThemeChangeCallback) {
 			onThemeChangeCallback();
 		}
 		return { success: true };
 	} catch (error) {
-		// Theme is invalid - fall back to dark theme
-		currentThemeName = "dark";
-		setGlobalTheme(loadTheme("dark"));
-		// Don't start watcher for fallback theme
+		// Theme is invalid - fall back to auto theme
+		currentThemeName = "auto";
+		setGlobalTheme(loadTheme("auto"));
+		// Don't start file watcher for fallback theme
 		return {
 			success: false,
 			error: error instanceof Error ? error.message : String(error),
@@ -715,6 +824,7 @@ export function setThemeInstance(themeInstance: Theme): void {
 	setGlobalTheme(themeInstance);
 	currentThemeName = "<in-memory>";
 	stopThemeWatcher(); // Can't watch a direct instance
+	// DBus watcher keeps running but won't act (currentThemeName !== "auto")
 	if (onThemeChangeCallback) {
 		onThemeChangeCallback();
 	}
@@ -787,6 +897,7 @@ export function stopThemeWatcher(): void {
 		themeWatcher.close();
 		themeWatcher = undefined;
 	}
+	stopDBusColorSchemeWatcher();
 }
 
 // ============================================================================
