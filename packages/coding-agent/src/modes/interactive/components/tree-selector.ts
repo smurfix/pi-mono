@@ -828,10 +828,10 @@ class TreeList implements Component {
 			this.selectedIndex = this.selectedIndex === 0 ? this.filteredNodes.length - 1 : this.selectedIndex - 1;
 		} else if (kb.matches(keyData, "selectDown")) {
 			this.selectedIndex = this.selectedIndex === this.filteredNodes.length - 1 ? 0 : this.selectedIndex + 1;
-		} else if (kb.matches(keyData, "cursorLeft")) {
+		} else if (kb.matches(keyData, "cursorLeft") || kb.matches(keyData, "pageUp")) {
 			// Page up
 			this.selectedIndex = Math.max(0, this.selectedIndex - this.maxVisibleLines);
-		} else if (kb.matches(keyData, "cursorRight")) {
+		} else if (kb.matches(keyData, "cursorRight") || kb.matches(keyData, "pageDown")) {
 			// Page down
 			this.selectedIndex = Math.min(this.filteredNodes.length - 1, this.selectedIndex + this.maxVisibleLines);
 		} else if (kb.matches(keyData, "selectConfirm")) {
@@ -1022,7 +1022,7 @@ export class TreeSelectorComponent extends Container implements Focusable {
 		this.addChild(new Text(theme.bold("  Session Tree"), 1, 0));
 		this.addChild(
 			new TruncatedText(
-				theme.fg("muted", "  ↑/↓: move. ←/→: page. Shift+L: label. ") +
+				theme.fg("muted", "  ↑/↓: move. ←/→/PgUp/PgDn: page. Shift+L: label. ") +
 					theme.fg("muted", "^D/^T/^U/^L/^A: filters (^O/⇧^O cycle)"),
 				0,
 				0,
