@@ -211,6 +211,12 @@ export interface ExtensionUIContext {
 	/** Get the current text from the core input editor. */
 	getEditorText(): string;
 
+	/**
+	 * Add a prompt string to the editor's up/down-arrow navigation history.
+	 * No-op in non-interactive modes.
+	 */
+	addToHistory(text: string): void;
+
 	/** Show a multi-line editor for text editing. */
 	editor(title: string, prefill?: string): Promise<string | undefined>;
 
