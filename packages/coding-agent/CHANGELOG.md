@@ -4641,3 +4641,11 @@ Initial public release.
 - Message queueing during streaming responses
 - OAuth integration for Gmail and Google Calendar access
 - HTML export with syntax highlighting and collapsible sections
+
+## [Local Changes]
+
+### Added
+
+- Added `--trace <file>` CLI flag that appends a JSONL trace of every HTTP request and response (method, URL, headers, plus parsed JSON or raw payload body) made through undici, including provider SDK and `fetch` traffic.
+
+- Added a hook to pre-fill history from an extension.

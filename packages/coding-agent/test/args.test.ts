@@ -329,6 +329,25 @@ describe("parseArgs", () => {
 		});
 	});
 
+	describe("--trace flag", () => {
+		test("parses --trace <file>", () => {
+			const result = parseArgs(["--trace", "/tmp/trace.jsonl"]);
+			expect(result.trace).toBe("/tmp/trace.jsonl");
+			expect(result.unknownFlags.size).toBe(0);
+		});
+
+		test("parses --trace=<file>", () => {
+			const result = parseArgs(["--trace=/tmp/trace.jsonl"]);
+			expect(result.trace).toBe("/tmp/trace.jsonl");
+			expect(result.unknownFlags.size).toBe(0);
+		});
+
+		test("--trace= accepts empty value", () => {
+			const result = parseArgs(["--trace="]);
+			expect(result.trace).toBe("");
+		});
+	});
+
 	describe("tool flags", () => {
 		test("parses --no-tools flag", () => {
 			const result = parseArgs(["--no-tools"]);

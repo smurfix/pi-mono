@@ -19,7 +19,13 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type {
+	AgentEndEvent,
+	ExtensionAPI,
+	ExtensionCommandContext,
+	ExtensionContext,
+	SessionStartEvent,
+} from "@earendil-works/pi-coding-agent";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -97,7 +103,7 @@ export default function historyExtension(pi: ExtensionAPI) {
 	// On session start: feed the full history into the editor's ring so
 	// Up/Down arrows work across sessions from the very first keystroke.
 	// ------------------------------------------------------------------
-	pi.on("session_start", (_event, ctx) => {
+	pi.on("session_start", (_event: SessionStartEvent, ctx: ExtensionContext) => {
 		if (!ctx.hasUI) return;
 
 		const file = historyFile(ctx.cwd);
@@ -124,7 +130,7 @@ export default function historyExtension(pi: ExtensionAPI) {
 	// ------------------------------------------------------------------
 	// After each agent turn: persist the user prompt.
 	// ------------------------------------------------------------------
-	pi.on("agent_end", (event, ctx) => {
+	pi.on("agent_end", (event: AgentEndEvent, ctx: ExtensionContext) => {
 		// Find the last user message in this turn.
 		for (let i = event.messages.length - 1; i >= 0; i--) {
 			const msg = event.messages[i];
@@ -151,7 +157,7 @@ export default function historyExtension(pi: ExtensionAPI) {
 	// ------------------------------------------------------------------
 	pi.registerCommand("history", {
 		description: "Search prompt history – /history [query]",
-		getArgumentCompletions(prefix) {
+		getArgumentCompletions(prefix: string) {
 			// Offer recent entries as completions for the argument.
 			const entries = readHistory(historyFile(process.cwd()));
 			const hits = entries.filter((e) => e.toLowerCase().includes(prefix.toLowerCase()));
@@ -160,7 +166,7 @@ export default function historyExtension(pi: ExtensionAPI) {
 				label: e.length > 80 ? `${e.slice(0, 80)}…` : e,
 			}));
 		},
-		async handler(args, ctx) {
+		async handler(args: string, ctx: ExtensionCommandContext) {
 			const file = historyFile(ctx.cwd);
 			const query = args.trim();
 			const all = readHistory(file);
@@ -187,7 +193,7 @@ export default function historyExtension(pi: ExtensionAPI) {
 	// ------------------------------------------------------------------
 	pi.registerCommand("hist-clear", {
 		description: "Clear the persistent history file",
-		async handler(_args, ctx) {
+		async handler(_args: string, ctx: ExtensionCommandContext) {
 			const file = historyFile(ctx.cwd);
 			const ok = await ctx.ui.confirm("Clear history", `Delete all entries in ${file}?`);
 			if (!ok) return;
