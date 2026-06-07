@@ -342,6 +342,7 @@ export class AgentSession {
 		// (session persistence, extensions, auto-compaction, retry logic)
 		this._unsubscribeAgent = this.agent.subscribe(this._handleAgentEvent);
 		this._installAgentToolHooks();
+		this._installAgentBeforeFollowUpDrainHook();
 
 		this._buildRuntime({
 			activeToolNames: this._initialActiveToolNames,
@@ -449,6 +450,18 @@ export class AgentSession {
 				details: hookResult.details,
 				isError: hookResult.isError ?? isError,
 			};
+		};
+	}
+
+	/**
+	 * Hook into the agent's loop so extension-requested post-turn actions
+	 * (e.g. ctx.requestReload()) run BEFORE the agent drains queued follow-up
+	 * messages and starts another LLM round. Reads this._extensionRunner at
+	 * call time so reload's runner swap is transparent.
+	 */
+	private _installAgentBeforeFollowUpDrainHook(): void {
+		this.agent.beforeFollowUpDrain = async () => {
+			await this._extensionRunner.drainPostTurnActions();
 		};
 	}
 
@@ -970,6 +983,12 @@ export class AgentSession {
 		if (await this._checkCompaction(msg)) {
 			return true;
 		}
+
+		// Drain extension-requested post-turn actions (e.g. ctx.requestReload()).
+		// Done here, between agent.run/continue cycles, so isStreaming is false
+		// and the reload happens before any queued followUp triggers a new run.
+		// Reload swaps this._extensionRunner; re-read it on the next line.
+		await this._extensionRunner.drainPostTurnActions();
 
 		// The agent loop drains both queues before emitting agent_end. Any messages
 		// here were queued by agent_end extension handlers and need a continuation.

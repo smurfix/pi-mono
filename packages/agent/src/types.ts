@@ -243,6 +243,17 @@ export interface AgentLoopConfig extends SimpleStreamOptions {
 	getFollowUpMessages?: () => Promise<AgentMessage[]>;
 
 	/**
+	 * Called when the agent would otherwise stop, just before follow-up
+	 * messages are drained and used to start another run. Use this to perform
+	 * host-side work (e.g. extension reload) that must complete before the
+	 * agent sees the follow-ups. May return an `AgentLoopTurnUpdate` whose
+	 * `context` (and optionally model/thinking level) replaces the current
+	 * loop state so the next round picks up post-reload tools and system
+	 * prompt.
+	 */
+	beforeFollowUpDrain?: () => Promise<AgentLoopTurnUpdate | undefined> | AgentLoopTurnUpdate | undefined;
+
+	/**
 	 * Tool execution mode.
 	 * - "sequential": execute tool calls one by one
 	 * - "parallel": preflight tool calls sequentially, then execute allowed tools concurrently;

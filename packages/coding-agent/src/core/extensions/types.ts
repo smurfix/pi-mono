@@ -336,6 +336,13 @@ export interface ExtensionContext {
 	compact(options?: CompactOptions): void;
 	/** Get the current effective system prompt. */
 	getSystemPrompt(): string;
+	/**
+	 * Request a reload of extensions/skills/prompts/themes to be performed
+	 * once the current agent turn finishes (between agent.run/continue
+	 * cycles, while the agent is idle). Safe to call from tools and event
+	 * handlers; no-op in modes that do not support reload.
+	 */
+	requestReload(): void;
 }
 
 /**

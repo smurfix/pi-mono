@@ -254,6 +254,13 @@ async function runLoop(
 		}
 
 		// Agent would stop here. Check for follow-up messages.
+		// First, let the host perform any pre-followup work (e.g. extension
+		// reload). If it returns an updated context, apply it so the next
+		// round sees fresh tools/system prompt/messages.
+		const beforeFollowUpSnapshot = await config.beforeFollowUpDrain?.();
+		if (beforeFollowUpSnapshot?.context) {
+			currentContext = beforeFollowUpSnapshot.context;
+		}
 		const followUpMessages = (await config.getFollowUpMessages?.()) || [];
 		if (followUpMessages.length > 0) {
 			// Set as pending so inner loop processes them

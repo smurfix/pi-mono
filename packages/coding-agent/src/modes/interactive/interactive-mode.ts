@@ -1603,7 +1603,7 @@ export class InteractiveMode {
 					return this.handleResumeSession(sessionPath, options);
 				},
 				reload: async () => {
-					await this.handleReloadCommand();
+					await this.handleReloadCommand({ force: true });
 				},
 			},
 			shutdownHandler: () => {
@@ -1719,6 +1719,9 @@ export class InteractiveMode {
 				})();
 			},
 			getSystemPrompt: () => this.session.systemPrompt,
+			requestReload: () => {
+				this.session.extensionRunner.requestPostTurnReload();
+			},
 		});
 
 		// Set up the extension shortcut handler on the default editor
@@ -5061,14 +5064,16 @@ export class InteractiveMode {
 	// Command handlers
 	// =========================================================================
 
-	private async handleReloadCommand(): Promise<void> {
-		if (this.session.isStreaming) {
-			this.showWarning("Wait for the current response to finish before reloading.");
-			return;
-		}
-		if (this.session.isCompacting) {
-			this.showWarning("Wait for compaction to finish before reloading.");
-			return;
+	private async handleReloadCommand(options?: { force?: boolean }): Promise<void> {
+		if (!options?.force) {
+			if (this.session.isStreaming) {
+				this.showWarning("Wait for the current response to finish before reloading.");
+				return;
+			}
+			if (this.session.isCompacting) {
+				this.showWarning("Wait for compaction to finish before reloading.");
+				return;
+			}
 		}
 
 		this.resetExtensionUI();

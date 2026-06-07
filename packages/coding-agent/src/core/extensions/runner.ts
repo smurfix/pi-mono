@@ -286,6 +286,7 @@ export class ExtensionRunner {
 	private switchSessionHandler: SwitchSessionHandler = async () => ({ cancelled: false });
 	private reloadHandler: ReloadHandler = async () => {};
 	private shutdownHandler: ShutdownHandler = () => {};
+	private postTurnReloadRequested = false;
 	private shortcutDiagnostics: ResourceDiagnostic[] = [];
 	private commandDiagnostics: ResourceDiagnostic[] = [];
 	private staleMessage: string | undefined;
@@ -683,7 +684,34 @@ export class ExtensionRunner {
 				runner.assertActive();
 				return runner.getSystemPromptFn();
 			},
+			requestReload: () => {
+				runner.assertActive();
+				runner.requestPostTurnReload();
+			},
 		};
+	}
+
+	/**
+	 * Request a reload to be performed by the host between agent.run/continue
+	 * cycles. Triggered by ExtensionContext.requestReload() and drained by
+	 * drainPostTurnActions(). Safe to call multiple times; coalesced.
+	 */
+	requestPostTurnReload(): void {
+		this.postTurnReloadRequested = true;
+	}
+
+	/**
+	 * Drain any post-turn actions queued during the just-finished agent run.
+	 * Called by AgentSession between agent.run/continue cycles, while the
+	 * agent is idle. Currently handles ctx.requestReload(); reload swaps in a
+	 * new ExtensionRunner, so after this returns the caller must re-read
+	 * its ExtensionRunner reference if it kept one.
+	 */
+	async drainPostTurnActions(): Promise<void> {
+		if (this.postTurnReloadRequested) {
+			this.postTurnReloadRequested = false;
+			await this.reloadHandler();
+		}
 	}
 
 	createCommandContext(): ExtensionCommandContext {

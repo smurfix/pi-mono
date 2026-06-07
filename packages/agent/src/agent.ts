@@ -106,6 +106,14 @@ export interface AgentOptions {
 	prepareNextTurn?: (
 		signal?: AbortSignal,
 	) => Promise<AgentLoopTurnUpdate | undefined> | AgentLoopTurnUpdate | undefined;
+	/**
+	 * Called inside the agent loop just before draining queued follow-up
+	 * messages, after the LLM has finished and before the next round (if
+	 * any) is dispatched. Use this to perform host-side work (e.g.
+	 * extension reload) that must complete before the agent sees the
+	 * follow-ups as user messages.
+	 */
+	beforeFollowUpDrain?: () => Promise<void> | void;
 	steeringMode?: QueueMode;
 	followUpMode?: QueueMode;
 	sessionId?: string;
@@ -186,6 +194,7 @@ export class Agent {
 	public prepareNextTurn?: (
 		signal?: AbortSignal,
 	) => Promise<AgentLoopTurnUpdate | undefined> | AgentLoopTurnUpdate | undefined;
+	public beforeFollowUpDrain?: () => Promise<void> | void;
 	private activeRun?: ActiveRun;
 	/** Session identifier forwarded to providers for cache-aware backends. */
 	public sessionId?: string;
@@ -209,6 +218,7 @@ export class Agent {
 		this.beforeToolCall = options.beforeToolCall;
 		this.afterToolCall = options.afterToolCall;
 		this.prepareNextTurn = options.prepareNextTurn;
+		this.beforeFollowUpDrain = options.beforeFollowUpDrain;
 		this.steeringQueue = new PendingMessageQueue(options.steeringMode ?? "one-at-a-time");
 		this.followUpQueue = new PendingMessageQueue(options.followUpMode ?? "one-at-a-time");
 		this.sessionId = options.sessionId;
@@ -444,7 +454,18 @@ export class Agent {
 				}
 				return this.steeringQueue.drain();
 			},
-			getFollowUpMessages: async () => this.followUpQueue.drain(),
+			getFollowUpMessages: async () => {
+				return this.followUpQueue.drain();
+			},
+			beforeFollowUpDrain: this.beforeFollowUpDrain
+				? async () => {
+						await this.beforeFollowUpDrain?.();
+						// Re-snapshot the loop context so that any host-side mutations
+						// performed by the hook (notably a reload that swapped
+						// state.tools) are picked up by the next round.
+						return { context: this.createContextSnapshot() };
+					}
+				: undefined,
 		};
 	}
 
