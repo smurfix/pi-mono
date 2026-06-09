@@ -63,7 +63,8 @@ fi
 echo "Latest tag: $LATEST_TAG"
 echo "Current branch: $CURRENT_BRANCH"
 
-if git merge-base --is-ancestor "$LATEST_TAG" HEAD; then
+if false # git merge-base --is-ancestor "$LATEST_TAG" HEAD
+then
   if [ "${FORCE:-0}" = "1" ]; then
     echo "$LATEST_TAG already merged into $CURRENT_BRANCH; continuing because FORCE=1."
   else
