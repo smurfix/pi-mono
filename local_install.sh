@@ -112,10 +112,6 @@ fi
 log "Installing coding-agent globally (sudo npm install -g ./packages/coding-agent)"
 sudo npm install -g ./packages/coding-agent
 
-# --- report ----------------------------------------------------------------
+# --- push ------------------------------------------------------------------
 
-log "Done"
-if command -v pi >/dev/null; then
-  echo "pi --version: $(pi --version 2>&1)"
-  echo "pi path:      $(command -v pi)"
-fi
+git push intern
