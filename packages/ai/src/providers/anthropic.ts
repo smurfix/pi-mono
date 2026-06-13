@@ -523,7 +523,22 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 				...(options?.timeoutMs !== undefined ? { timeout: options.timeoutMs } : {}),
 				maxRetries: options?.maxRetries ?? 0,
 			};
-			const response = await client.messages.create({ ...params, stream: true }, requestOptions).asResponse();
+			let response: Response;
+			try {
+				response = await client.messages.create({ ...params, stream: true }, requestOptions).asResponse();
+			} catch (err) {
+				// Proxies/gateways that override baseUrl may not support the thinking
+				// parameter and can reject or mangle it (e.g. converting adaptive to
+				// enabled). When we get a 400 about unsupported thinking, retry
+				// without thinking/output_config so the model uses its default.
+				if (params.thinking && params.thinking.type !== "disabled" && isThinkingUnsupportedError(err)) {
+					const { thinking: _t, output_config: _o, ...rest } = params;
+					params = rest as MessageCreateParamsStreaming;
+					response = await client.messages.create({ ...params, stream: true }, requestOptions).asResponse();
+				} else {
+					throw err;
+				}
+			}
 			await options?.onResponse?.({ status: response.status, headers: headersToRecord(response.headers) }, model);
 			stream.push({ type: "start", partial: output });
 
@@ -1239,4 +1254,16 @@ function mapStopReason(
 			// Handle unknown stop reasons gracefully (API may add new values)
 			throw new Error(`Unhandled stop reason: ${reason}`);
 	}
+}
+
+/**
+ * Detect a 400 error indicating the thinking parameter is unsupported.
+ * Proxies/gateways that override baseUrl may reject or mangle thinking
+ * modes (e.g. converting adaptive to enabled). This matches the specific
+ * Anthropic error message so we can retry without thinking.
+ */
+function isThinkingUnsupportedError(err: unknown): boolean {
+	if (typeof err !== "object" || err === null) return false;
+	const apiErr = err as { status?: number; message?: string };
+	return apiErr.status === 400 && typeof apiErr.message === "string" && apiErr.message.includes("thinking.type");
 }
