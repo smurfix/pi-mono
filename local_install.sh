@@ -45,6 +45,11 @@ fi
 # Refuse to run with a dirty work tree so that a merge conflict (or biome
 # auto-fixes during `npm run check`) cannot get tangled up with pre-existing
 # local edits.
+git restore \
+   package-lock.json \
+   packages/ai/src/models.generated.ts \
+   packages/coding-agent/npm-shrinkwrap.json \
+   #
 if ! git diff --quiet || ! git diff --cached --quiet; then
   echo "working tree has uncommitted changes; commit or stash first" >&2
   git status --short >&2
@@ -88,6 +93,9 @@ fi
 # step below explicitly invokes the scripts we actually want to run.
 log "Installing workspace dependencies (npm install --ignore-scripts)"
 npm install --ignore-scripts
+
+log "Rebuilding shrinkwrap"
+npm run shrinkwrap:coding-agent
 
 # --- build and verify ------------------------------------------------------
 
