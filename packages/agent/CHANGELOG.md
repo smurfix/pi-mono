@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.79.8] - 2026-06-19
+
+### Added
+
+- Added `@earendil-works/pi-agent-core/base` for bundlers that want to pair the agent core with selective `@earendil-works/pi-ai/base` provider registration ([#5348](https://github.com/earendil-works/pi/pull/5348) by [@FredKSchott](https://github.com/FredKSchott)).
+
 ## [0.79.7] - 2026-06-18
 
 ## [0.79.6] - 2026-06-16
