@@ -59,6 +59,9 @@ fi
 
 # --- find and merge the latest upstream tag -------------------------------
 
+git fetch --tags intern
+git merge intern main
+
 log "Fetching tags from '$UPSTREAM_REMOTE'"
 git fetch --tags --prune "$UPSTREAM_REMOTE"
 
