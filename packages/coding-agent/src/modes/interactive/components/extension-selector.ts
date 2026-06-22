@@ -13,6 +13,8 @@ export interface ExtensionSelectorOptions {
 	tui?: TUI;
 	timeout?: number;
 	onToggleToolsExpanded?: () => void;
+	/** Zero-based index of the initially highlighted option. Clamped to range. */
+	initialIndex?: number;
 }
 
 export class ExtensionSelectorComponent extends Container {
@@ -40,6 +42,10 @@ export class ExtensionSelectorComponent extends Container {
 		this.onCancelCallback = onCancel;
 		this.onToggleToolsExpanded = opts?.onToggleToolsExpanded;
 		this.baseTitle = title;
+		// Clamp the requested initial index into [0, options.length - 1].
+		if (typeof opts?.initialIndex === "number" && options.length > 0) {
+			this.selectedIndex = Math.max(0, Math.min(opts.initialIndex, options.length - 1));
+		}
 
 		this.addChild(new DynamicBorder());
 		this.addChild(new Spacer(1));

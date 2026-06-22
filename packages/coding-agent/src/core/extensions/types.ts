@@ -91,6 +91,12 @@ export interface ExtensionUIDialogOptions {
 	signal?: AbortSignal;
 	/** Timeout in milliseconds. Dialog auto-dismisses with live countdown display. */
 	timeout?: number;
+	/**
+	 * For `select`: zero-based index of the option that should be initially
+	 * highlighted (the active row when the menu opens). Out-of-range values are
+	 * clamped. Defaults to 0.
+	 */
+	initialIndex?: number;
 }
 
 /** Placement for extension widgets. */
