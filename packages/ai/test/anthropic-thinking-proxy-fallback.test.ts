@@ -1,8 +1,7 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { describe, expect, it } from "vitest";
-import { getModel } from "../src/models.ts";
-import { streamSimple } from "../src/stream.ts";
+import { getModel, streamSimple } from "../src/compat.ts";
 import type { Context } from "../src/types.ts";
 
 /**
