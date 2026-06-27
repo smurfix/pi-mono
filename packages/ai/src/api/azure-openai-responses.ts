@@ -12,6 +12,7 @@ import type {
 } from "../types.ts";
 import { AssistantMessageEventStream } from "../utils/event-stream.ts";
 import { headersToRecord } from "../utils/headers.ts";
+import { summarizeHtmlErrorBody } from "../utils/html-error.ts";
 import { getProviderEnvValue } from "../utils/provider-env.ts";
 import { clampOpenAIPromptCacheKey } from "./openai-prompt-cache.ts";
 import { convertResponsesMessages, convertResponsesTools, processResponsesStream } from "./openai-responses-shared.ts";
@@ -47,10 +48,11 @@ function formatAzureOpenAIError(error: unknown): string {
 	if (error instanceof Error) {
 		const status = (error as Error & { status?: unknown }).status;
 		const statusCode = typeof status === "number" ? status : undefined;
+		const message = summarizeHtmlErrorBody(error.message);
 		if (statusCode !== undefined) {
-			return `Azure OpenAI API error (${statusCode}): ${error.message}`;
+			return `Azure OpenAI API error (${statusCode}): ${message}`;
 		}
-		return error.message;
+		return message;
 	}
 	try {
 		return JSON.stringify(error);

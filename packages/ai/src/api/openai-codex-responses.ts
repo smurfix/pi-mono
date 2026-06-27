@@ -42,6 +42,7 @@ import {
 } from "../utils/diagnostics.ts";
 import { AssistantMessageEventStream } from "../utils/event-stream.ts";
 import { headersToRecord } from "../utils/headers.ts";
+import { summarizeHtmlErrorBody } from "../utils/html-error.ts";
 import { resolveHttpProxyUrlForTarget } from "../utils/node-http-proxy.ts";
 import { clampOpenAIPromptCacheKey } from "./openai-prompt-cache.ts";
 import { convertResponsesMessages, convertResponsesTools, processResponsesStream } from "./openai-responses-shared.ts";
@@ -411,7 +412,7 @@ export const stream: StreamFunction<"openai-codex-responses", OpenAICodexRespons
 				delete (block as { partialJson?: string }).partialJson;
 			}
 			output.stopReason = options?.signal?.aborted ? "aborted" : "error";
-			output.errorMessage = error instanceof Error ? error.message : String(error);
+			output.errorMessage = summarizeHtmlErrorBody(error instanceof Error ? error.message : String(error));
 			stream.push({ type: "error", reason: output.stopReason, error: output });
 			stream.end();
 		}
@@ -1439,7 +1440,7 @@ async function parseErrorResponse(response: Response): Promise<{ message: string
 		}
 	} catch {}
 
-	return { message, friendlyMessage };
+	return { message: summarizeHtmlErrorBody(message), friendlyMessage };
 }
 
 // ============================================================================

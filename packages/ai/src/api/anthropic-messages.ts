@@ -31,6 +31,7 @@ import type {
 } from "../types.ts";
 import { AssistantMessageEventStream } from "../utils/event-stream.ts";
 import { headersToRecord } from "../utils/headers.ts";
+import { summarizeHtmlErrorBody } from "../utils/html-error.ts";
 import { parseJsonWithRepair, parseStreamingJson } from "../utils/json-parse.ts";
 import { getProviderEnvValue } from "../utils/provider-env.ts";
 import { sanitizeSurrogates } from "../utils/sanitize-unicode.ts";
@@ -723,7 +724,7 @@ export const stream: StreamFunction<"anthropic-messages", AnthropicOptions> = (
 				delete (block as { partialJson?: string }).partialJson;
 			}
 			output.stopReason = options?.signal?.aborted ? "aborted" : "error";
-			output.errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+			output.errorMessage = summarizeHtmlErrorBody(error instanceof Error ? error.message : JSON.stringify(error));
 			stream.push({ type: "error", reason: output.stopReason, error: output });
 			stream.end();
 		}
