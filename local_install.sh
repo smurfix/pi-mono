@@ -34,7 +34,8 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   echo "not inside a git work tree" >&2; exit 1
 fi
 if ! git remote get-url "$UPSTREAM_REMOTE" >/dev/null 2>&1; then
-  echo "remote '$UPSTREAM_REMOTE' does not exist" >&2; exit 1
+  echo "remote '$UPSTREAM_REMOTE' does not exist. Not merging." >&2
+  UPSTREAM_REMOTE=""
 fi
 
 CURRENT_BRANCH=$(git symbolic-ref --quiet --short HEAD || true)
@@ -62,32 +63,34 @@ fi
 git fetch --tags intern
 git merge intern main
 
-log "Fetching tags from '$UPSTREAM_REMOTE'"
-git fetch --tags --prune "$UPSTREAM_REMOTE"
-
-LATEST_TAG=$(git tag --list "$TAG_PATTERN" --sort=-v:refname | head -n1)
-if [ -z "$LATEST_TAG" ]; then
-  echo "no tags matching '$TAG_PATTERN' found" >&2; exit 1
-fi
-echo "Latest tag: $LATEST_TAG"
-echo "Current branch: $CURRENT_BRANCH"
-
-if false # git merge-base --is-ancestor "$LATEST_TAG" HEAD
-then
-  if [ "${FORCE:-0}" = "1" ]; then
-    echo "$LATEST_TAG already merged into $CURRENT_BRANCH; continuing because FORCE=1."
-  else
-    echo "$LATEST_TAG already merged into $CURRENT_BRANCH; nothing to do."
-    echo "Set FORCE=1 to rebuild and reinstall anyway."
-    exit 0
+if test -n "$UPSTREAM_REMOTE" ; then
+  log "Fetching tags from '$UPSTREAM_REMOTE'"
+  git fetch --tags --prune "$UPSTREAM_REMOTE"
+  
+  LATEST_TAG=$(git tag --list "$TAG_PATTERN" --sort=-v:refname | head -n1)
+  if [ -z "$LATEST_TAG" ]; then
+    echo "no tags matching '$TAG_PATTERN' found" >&2; exit 1
   fi
-else
-  log "Merging $LATEST_TAG into $CURRENT_BRANCH"
-  if ! git merge --no-edit --no-ff "$LATEST_TAG"; then
-    echo >&2
-    echo "merge conflict while merging $LATEST_TAG into $CURRENT_BRANCH" >&2
-    echo "resolve conflicts, commit, then rerun this script" >&2
-    exit 1
+  echo "Latest tag: $LATEST_TAG"
+  echo "Current branch: $CURRENT_BRANCH"
+
+  if false # git merge-base --is-ancestor "$LATEST_TAG" HEAD
+  then
+    if [ "${FORCE:-0}" = "1" ]; then
+      echo "$LATEST_TAG already merged into $CURRENT_BRANCH; continuing because FORCE=1."
+    else
+      echo "$LATEST_TAG already merged into $CURRENT_BRANCH; nothing to do."
+      echo "Set FORCE=1 to rebuild and reinstall anyway."
+      exit 0
+    fi
+  else
+    log "Merging $LATEST_TAG into $CURRENT_BRANCH"
+    if ! git merge --no-edit --no-ff "$LATEST_TAG"; then
+      echo >&2
+      echo "merge conflict while merging $LATEST_TAG into $CURRENT_BRANCH" >&2
+      echo "resolve conflicts, commit, then rerun this script" >&2
+      exit 1
+    fi
   fi
 fi
 
