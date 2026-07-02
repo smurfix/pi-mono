@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.80.3] - 2026-06-30
+
+### Added
+
+- Added `prepareNextTurnWithContext` for `Agent` users that need the next-turn loop context.
+
+### Fixed
+
+- Fixed `Agent.prepareNextTurn` to keep receiving the run abort signal instead of the next-turn context.
+
 ## [0.80.2] - 2026-06-23
 
 ### Changed
