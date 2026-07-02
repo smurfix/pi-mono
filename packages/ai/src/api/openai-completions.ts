@@ -34,7 +34,6 @@ import type {
 } from "../types.ts";
 import { AssistantMessageEventStream } from "../utils/event-stream.ts";
 import { headersToRecord } from "../utils/headers.ts";
-import { summarizeHtmlErrorBody } from "../utils/html-error.ts";
 import { parseStreamingJson } from "../utils/json-parse.ts";
 import { getProviderEnvValue } from "../utils/provider-env.ts";
 import { sanitizeSurrogates } from "../utils/sanitize-unicode.ts";
@@ -464,7 +463,7 @@ export const stream: StreamFunction<"openai-completions", OpenAICompletionsOptio
 				delete (block as { streamIndex?: number }).streamIndex;
 			}
 			output.stopReason = options?.signal?.aborted ? "aborted" : "error";
-			output.errorMessage = summarizeHtmlErrorBody(error instanceof Error ? error.message : JSON.stringify(error));
+			output.errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
 			// Some providers via OpenRouter give additional information in this field.
 			const rawMetadata = (error as any)?.error?.metadata?.raw;
 			if (rawMetadata) output.errorMessage += `\n${rawMetadata}`;

@@ -1,11 +1,5 @@
 # Changelog
 
-## [Unreleased]
-
-### Fixed
-
-- Summarized HTML error pages returned by gateways/proxies (e.g. nginx, Cloudflare, ALB) into a readable headline and body instead of surfacing raw markup, when a provider returns HTML despite a JSON request. The HTTP status is preserved so retry classification still matches.
-
 ## [0.80.2] - 2026-06-23
 
 ### Changed

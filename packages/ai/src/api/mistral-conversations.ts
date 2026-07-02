@@ -23,7 +23,6 @@ import type {
 } from "../types.ts";
 import { AssistantMessageEventStream } from "../utils/event-stream.ts";
 import { shortHash } from "../utils/hash.ts";
-import { summarizeHtmlErrorBody } from "../utils/html-error.ts";
 import { parseStreamingJson } from "../utils/json-parse.ts";
 import { sanitizeSurrogates } from "../utils/sanitize-unicode.ts";
 import { buildBaseOptions } from "./simple-options.ts";
@@ -187,13 +186,12 @@ function formatMistralError(error: unknown): string {
 	if (error instanceof Error) {
 		const sdkError = error as Error & { statusCode?: unknown; body?: unknown };
 		const statusCode = typeof sdkError.statusCode === "number" ? sdkError.statusCode : undefined;
-		const bodyText = typeof sdkError.body === "string" ? summarizeHtmlErrorBody(sdkError.body.trim()) : undefined;
+		const bodyText = typeof sdkError.body === "string" ? sdkError.body.trim() : undefined;
 		if (statusCode !== undefined && bodyText) {
 			return `Mistral API error (${statusCode}): ${truncateErrorText(bodyText, MAX_MISTRAL_ERROR_BODY_CHARS)}`;
 		}
-		const message = summarizeHtmlErrorBody(error.message);
-		if (statusCode !== undefined) return `Mistral API error (${statusCode}): ${message}`;
-		return message;
+		if (statusCode !== undefined) return `Mistral API error (${statusCode}): ${error.message}`;
+		return error.message;
 	}
 	return safeJsonStringify(error);
 }

@@ -26,7 +26,6 @@ import type {
 } from "../types.ts";
 import { AssistantMessageEventStream } from "../utils/event-stream.ts";
 import { providerHeadersToRecord } from "../utils/headers.ts";
-import { summarizeHtmlErrorBody } from "../utils/html-error.ts";
 import { getProviderEnvValue } from "../utils/provider-env.ts";
 import { sanitizeSurrogates } from "../utils/sanitize-unicode.ts";
 import type { GoogleThinkingLevel } from "./google-shared.ts";
@@ -288,7 +287,7 @@ export const stream: StreamFunction<"google-vertex", GoogleVertexOptions> = (
 				}
 			}
 			output.stopReason = options?.signal?.aborted ? "aborted" : "error";
-			output.errorMessage = summarizeHtmlErrorBody(error instanceof Error ? error.message : JSON.stringify(error));
+			output.errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
 			stream.push({ type: "error", reason: output.stopReason, error: output });
 			stream.end();
 		}

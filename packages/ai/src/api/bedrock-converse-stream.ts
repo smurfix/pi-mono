@@ -49,7 +49,6 @@ import type {
 } from "../types.ts";
 import { AssistantMessageEventStream } from "../utils/event-stream.ts";
 import { providerHeadersToRecord } from "../utils/headers.ts";
-import { summarizeHtmlErrorBody } from "../utils/html-error.ts";
 import { parseStreamingJson } from "../utils/json-parse.ts";
 import { resolveHttpProxyUrlForTarget } from "../utils/node-http-proxy.ts";
 import { getProviderEnvValue } from "../utils/provider-env.ts";
@@ -323,7 +322,7 @@ const BEDROCK_DATA_RETENTION_DOCS_URL = "https://docs.aws.amazon.com/bedrock/lat
  * detection) can distinguish error categories via simple string matching.
  */
 function formatBedrockError(error: unknown): string {
-	const message = summarizeHtmlErrorBody(error instanceof Error ? error.message : JSON.stringify(error));
+	const message = error instanceof Error ? error.message : JSON.stringify(error);
 	const dataRetentionHint = /data retention mode/i.test(message)
 		? ` See ${BEDROCK_DATA_RETENTION_DOCS_URL} for supported data retention modes.`
 		: "";
