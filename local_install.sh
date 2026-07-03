@@ -51,6 +51,7 @@ git restore \
    packages/ai/src/models.generated.ts \
    packages/coding-agent/npm-shrinkwrap.json \
    packages/ai/src/image-models.generated.ts \
+   packages/ai/src/providers/*.models.ts
    #
 if ! git diff --quiet || ! git diff --cached --quiet; then
   echo "working tree has uncommitted changes; commit or stash first" >&2
