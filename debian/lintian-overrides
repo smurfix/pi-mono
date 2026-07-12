@@ -1,0 +1,4 @@
+pi-coding-agent binary: no-manual-page
+pi-coding-agent binary: embedded-javascript-library
+pi-coding-agent binary: script-not-executable
+pi-coding-agent binary: executable-not-elf-or-script

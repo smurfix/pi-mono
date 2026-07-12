@@ -1,0 +1,99 @@
+#!/bin/bash
+# Stage a self-contained @earendil-works/pi-coding-agent install tree.
+#
+# Mirrors the global-install half of local_install.sh, but instead of copying
+# into the npm global prefix it lays the tree out under a DESTDIR-style /usr
+# (passed as $1) for dh_install to pick up.
+#
+# Why pack into tarballs: `npm install` of the coding-agent workspace package
+# would resolve its @earendil-works/* siblings from the npm registry.
+# Packing every sibling and pinning it with a file: specifier forces npm to
+# install the locally-built copies and dedupe the third-party deps around
+# them.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+DESTUSR="${1:?usage: stage <dest-usr>}"
+
+STAGE="$ROOT/debian/.stage"
+TB="$STAGE/tarballs"
+INSTALL="$STAGE/root"
+NM_DEST="$DESTUSR/lib/node_modules/@earendil-works"
+BIN_DEST="$DESTUSR/bin"
+
+rm -rf "$STAGE"
+mkdir -p "$TB" "$INSTALL" "$NM_DEST" "$BIN_DEST"
+
+# coding-agent plus the three workspace siblings it depends on.
+for pkg in tui ai agent coding-agent; do
+	(cd "$ROOT/packages/$pkg" && npm pack --pack-destination "$TB" >/dev/null)
+done
+
+# Synthetic root that pins each workspace package to its local tarball.
+REL=$(python3 -c "import os.path,sys; print(os.path.relpath(sys.argv[1], sys.argv[2]))" "$TB" "$INSTALL")
+DEPS=""
+for tb in "$TB"/*.tgz; do
+	name=$(tar -xOf "$tb" package/package.json \
+		| python3 -c 'import json,sys; print(json.load(sys.stdin)["name"])')
+	file=$(basename "$tb")
+	entry="    \"${name}\": \"file:${REL}/${file}\""
+	if [ -z "$DEPS" ]; then
+		DEPS="$entry"
+	else
+		DEPS="${DEPS},
+${entry}"
+	fi
+done
+cat > "$INSTALL/package.json" <<EOF
+{
+  "private": true,
+  "dependencies": {
+${DEPS}
+  }
+}
+EOF
+
+(cd "$INSTALL" && npm install --omit=dev --ignore-scripts)
+
+if [ ! -f "$INSTALL/node_modules/.bin/pi" ]; then
+	echo "pi binary not found in staging install" >&2
+	exit 1
+fi
+
+# npm hoists the siblings and third-party deps to the top of node_modules.
+# The installed tree must be self-contained under pi-coding-agent/, so fold
+# everything back beneath it (same reshuffle local_install.sh performs).
+CA="$INSTALL/node_modules/@earendil-works/pi-coding-agent"
+CA_NM="$CA/node_modules"
+mkdir -p "$CA_NM/@earendil-works"
+
+for ws in pi-ai pi-tui pi-agent-core; do
+	src="$INSTALL/node_modules/@earendil-works/$ws"
+	[ -d "$src" ] && mv "$src" "$CA_NM/@earendil-works/$ws"
+done
+
+for dep in "$INSTALL/node_modules/"*; do
+	name=$(basename "$dep")
+	case "$name" in
+		.bin|.package-lock.json|@earendil-works) continue ;;
+	esac
+	[ -e "$CA_NM/$name" ] || mv "$dep" "$CA_NM/$name"
+done
+
+# Drop foreign-architecture prebuilt addons (pi-tui ships win32/darwin
+# *.node blobs); keep only linux ones. Dead weight on Linux, and packaging
+# policy forbids installing foreign-arch binaries.
+find "$CA" -type f -name '*.node' ! -path '*linux*' -delete
+
+# Strip dev-only cruft that npm leaves in node_modules; lintian flags these
+# as package-contains-{eslint-config,npm-ignore}-file and they serve no
+# runtime purpose.
+find "$CA" -type f \( -name '.npmignore' -o -name '.eslintrc' \
+	-o -name '.eslintrc.js' -o -name '.eslintrc.json' \
+	-o -name '.eslintrc.yml' -o -name '.eslintrc.cjs' \
+	-o -name '.eslintignore' \) -delete
+
+rm -rf "$NM_DEST/pi-coding-agent"
+cp -a "$CA" "$NM_DEST/pi-coding-agent"
+ln -sf ../lib/node_modules/@earendil-works/pi-coding-agent/dist/cli.js \
+	"$BIN_DEST/pi"

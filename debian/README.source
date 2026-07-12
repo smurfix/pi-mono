@@ -1,0 +1,38 @@
+pi-coding-agent for Debian
+=========================
+
+Source format: 3.0 (native).
+
+Network requirement
+--------------------
+The build needs network access to the npm registry. Two `npm install` calls
+fetch packages:
+
+  * override_dh_auto_configure: `npm install --ignore-scripts` hydrates the
+    workspace dev toolchain (tsgo, shx, vitest, ...).
+  * debian/stage: `npm install --omit=dev --ignore-scripts` installs the
+    third-party runtime deps of @earendil-works/pi-coding-agent into the
+    staging tree.
+
+`node_modules/` and the compiled `packages/*/dist` trees are therefore not
+part of the source package (excluded via debian/source/options); they are
+regenerated during the build.
+
+Near-offline builds
+-------------------
+To build without live network access, pre-populate the npm cache first from a
+networked machine, then point the build at it:
+
+    npm install --ignore-scripts          # warm ~/.npm/_cacache
+    # copy ~/.npm/_cacache onto the build host, then:
+    HOME=<home-with-cache> dpkg-buildpackage -b -us -uc
+
+Both `npm install` invocations resolve from the cache when the registry is
+unreachable.
+
+Tests
+-----
+override_dh_auto_test does not run the upstream suite. The suite needs Node's
+TypeScript stripper (tui: `node --test *.ts`; ai: a `node --eval` probe over
+.ts sources), which Debian's nodejs is built without (ERR_NO_TYPESCRIPT). A
+`pi --version` smoke test runs instead; the full suite runs in upstream CI.

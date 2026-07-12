@@ -1,0 +1,8 @@
+pi-coding-agent (0.80.6.0) smurf; urgency=medium
+
+  * Initial native Debian packaging. Reproduces the global-install half of
+    local_install.sh under /usr (was /usr/local): builds the workspace
+    packages and stages a self-contained @earendil-works/pi-coding-agent
+    module tree plus a /usr/bin/pi launcher.
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Sat, 11 Jul 2026 20:50:47 +0200

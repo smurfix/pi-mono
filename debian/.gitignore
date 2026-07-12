@@ -1,0 +1,9 @@
+/files
+/*.log
+/*.debhelper
+/*-stamp
+/*.substvars
+/.debhelper/
+/pi-coding-agent
+/tmp
+/.stage

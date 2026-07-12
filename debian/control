@@ -1,0 +1,21 @@
+Source: pi-coding-agent
+Maintainer: "Matthias Urlichs" <matthias@urlichs.de>
+Section: utils
+Priority: optional
+Build-Depends: debhelper-compat (= 13),
+  nodejs,
+  npm,
+  python3,
+Standards-Version: 4.6.2
+Homepage: https://github.com/earendil-works/pi
+
+Package: pi-coding-agent
+Architecture: amd64
+Depends: ${misc:Depends},
+  ${shlibs:Depends},
+  nodejs (>= 22),
+Description: Coding agent CLI with tools and session management
+ pi is a coding agent CLI (the "pi" command) with read, bash, edit, and
+ write tools plus session management. This package installs the self-contained
+ @earendil-works/pi-coding-agent Node module tree under
+ /usr/lib/node_modules and a /usr/bin/pi launcher.

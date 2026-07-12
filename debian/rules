@@ -1,0 +1,38 @@
+#!/usr/bin/make -f
+
+export PATH := $(CURDIR)/node_modules/.bin:$(PATH)
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	npm install --ignore-scripts
+
+override_dh_auto_build:
+	cd packages/tui && tsgo -p tsconfig.build.json
+	cd packages/ai && tsgo -p tsconfig.build.json
+	cd packages/agent && tsgo -p tsconfig.build.json
+	cd packages/coding-agent && npm run build
+
+override_dh_auto_install:
+	debian/stage $(CURDIR)/debian/tmp/usr
+
+override_dh_clean:
+	dh_clean
+	# Remove custom staging/build dirs that dh_clean does not know about,
+	# so the tree is pristine for source packaging and the next build.
+	rm -rf debian/.stage debian/.test-home debian/pi-coding-agent debian/tmp
+
+override_dh_auto_test:
+	# The upstream suite needs Node's TypeScript stripper, which Debian's
+	# nodejs is built without (ERR_NO_TYPESCRIPT): tui runs `node --test *.ts`
+	# directly and ai's lazy-module-load test spawns `node --eval` over .ts
+	# sources, so neither can run on buildds. Smoke-test the built CLI instead;
+	# the full suite runs in upstream CI.
+	mkdir -p $(CURDIR)/debian/.test-home
+	HOME=$(CURDIR)/debian/.test-home node packages/coding-agent/dist/cli.js --version
+
+override_dh_fixperms:
+	dh_fixperms
+	chmod 0755 debian/pi-coding-agent/usr/lib/node_modules/@earendil-works/pi-coding-agent/dist/cli.js
+	chmod 0755 debian/pi-coding-agent/usr/lib/node_modules/@earendil-works/pi-coding-agent/dist/rpc-entry.js
