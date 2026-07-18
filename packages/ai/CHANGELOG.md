@@ -1,12 +1,5 @@
 # Changelog
 
-## [Unreleased]
-
-### Fixed
-
-- Fixed catalog generation removing curated Kimi Coding models (`kimi-for-coding` and `kimi-k2-thinking`) when models.dev retires them.
-- Fixed Anthropic Messages streaming no longer retrying without `thinking` and `output_config` when a proxy rejects `thinking.type` with a 400.
-
 ## [0.80.10] - 2026-07-16
 
 ### Fixed
@@ -1742,3 +1735,12 @@ _Dedicated to Peter's shoulder ([@steipete](https://twitter.com/steipete))_
 ## [0.9.4] - 2025-11-26
 
 Initial release with multi-provider LLM support.
+
+# Local Changes
+
+- Fixed catalog generation removing curated Kimi Coding models (`kimi-for-coding` and `kimi-k2-thinking`) when models.dev retires them.
+- Fixed Anthropic Messages streaming no longer retrying without `thinking` and `output_config` when a proxy rejects `thinking.type` with a 400.
+- Fixed GitHub Copilot long-context pricing tiers in generated model metadata ([#6668](https://github.com/earendil-works/pi/issues/6668)).
+- Fixed Kimi Coding subscription models to report API-equivalent implied costs when models.dev reports zero pricing.
+- Fixed OpenAI Responses early stream endings to be classified as retryable provider errors ([#6727](https://github.com/earendil-works/pi/issues/6727)).
+
