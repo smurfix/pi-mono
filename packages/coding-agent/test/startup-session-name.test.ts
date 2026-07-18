@@ -1,10 +1,13 @@
 import { spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { ENV_AGENT_DIR } from "../src/config.ts";
 
+const tsxHook = pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href;
 const cliPath = resolve(__dirname, "../src/cli.ts");
 const tempDirs: string[] = [];
 
@@ -65,7 +68,7 @@ function readSessionInfoNames(sessionFile: string): string[] {
 
 async function runCli(args: string[], dirs: CliDirs): Promise<CliResult> {
 	let stderr = "";
-	const child = spawn(process.execPath, [cliPath, ...args], {
+	const child = spawn(process.execPath, ["--import", tsxHook, cliPath, ...args], {
 		cwd: dirs.projectDir,
 		env: {
 			...process.env,

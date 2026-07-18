@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- Fixed catalog generation removing curated Kimi Coding models (`kimi-for-coding` and `kimi-k2-thinking`) when models.dev retires them.
+- Fixed Anthropic Messages streaming no longer retrying without `thinking` and `output_config` when a proxy rejects `thinking.type` with a 400.
+
 ## [0.80.10] - 2026-07-16
 
 ### Fixed

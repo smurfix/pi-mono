@@ -1,12 +1,14 @@
 import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const aiEntryUrl = new URL("../src/index.ts", import.meta.url).href;
 const compatEntryUrl = new URL("../src/compat.ts", import.meta.url).href;
 const providersAllUrl = new URL("../src/providers/all.ts", import.meta.url).href;
+const tsxHook = pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href;
 
 const SDK_SPECIFIERS = [
 	"@anthropic-ai/sdk",
@@ -41,7 +43,7 @@ function runProbe(action: string): ProbeResult {
 		console.log(JSON.stringify({ loadedSpecifiers: [...new Set(loaded)] }));
 	`;
 
-	const result = spawnSync(process.execPath, ["--input-type=module", "--eval", script], {
+	const result = spawnSync(process.execPath, ["--import", tsxHook, "--input-type=module", "--eval", script], {
 		cwd: packageRoot,
 		encoding: "utf8",
 	});
