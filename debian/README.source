@@ -30,6 +30,29 @@ networked machine, then point the build at it:
 Both `npm install` invocations resolve from the cache when the registry is
 unreachable.
 
+Generated model data
+---------------------
+packages/ai imports per-provider model values from
+packages/ai/src/providers/data/*.json. These are generated (gitignored) by
+`npm --prefix packages/ai run generate-models`, which also fetches live model
+lists from non-npm endpoints (openrouter.ai, models.dev, ...). They are not
+part of the git tree and are not excluded by debian/source/options, so they
+ship in the native source tarball only if present on disk at `dpkg-source -b`
+time.
+
+override_dh_auto_build regenerates data/ on demand *only when absent*, using
+the generator's --json-only mode (writes the JSON values without rewriting
+the committed *.models.ts / models.generated.ts catalogs, so the tree is not
+churned). A binary build from a bare checkout therefore needs network access
+to those model-list endpoints.
+
+Official buildds have no such network. Pre-generate the data on a networked
+machine so it is baked into the source tarball, where the binary build finds
+it already present and skips regeneration entirely:
+
+    npm --prefix packages/ai run generate-models   # refreshes committed catalogs; commit any drift
+    dpkg-source -b .
+
 Tests
 -----
 override_dh_auto_test does not run the upstream suite. The suite needs Node's
