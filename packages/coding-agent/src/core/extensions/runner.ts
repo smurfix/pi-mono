@@ -696,6 +696,10 @@ export class ExtensionRunner {
 				runner.assertActive();
 				return getModel();
 			},
+			get thinkingLevel() {
+				runner.assertActive();
+				return runner.runtime.getThinkingLevel();
+			},
 			isIdle: () => {
 				runner.assertActive();
 				return runner.isIdleFn();
@@ -912,6 +916,10 @@ export class ExtensionRunner {
 						currentEvent.isError = handlerResult.isError;
 						modified = true;
 					}
+					if (handlerResult.usage !== undefined) {
+						currentEvent.usage = handlerResult.usage;
+						modified = true;
+					}
 				} catch (err) {
 					const message = err instanceof Error ? err.message : String(err);
 					const stack = err instanceof Error ? err.stack : undefined;
@@ -933,6 +941,7 @@ export class ExtensionRunner {
 			content: currentEvent.content,
 			details: currentEvent.details,
 			isError: currentEvent.isError,
+			usage: currentEvent.usage,
 		};
 	}
 
