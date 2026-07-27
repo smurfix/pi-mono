@@ -1990,6 +1990,46 @@ async function generateModels() {
 		}
 	}
 
+	// Preserve curated Kimi Coding models that models.dev has retired but pi still ships
+	// and tests: kimi-for-coding (allowEmptySignature + forceAdaptiveThinking) and
+	// kimi-k2-thinking (forceAdaptiveThinking). When models.dev lists them, the
+	// upstream entry wins; these fill in only when they are missing.
+	const missingKimiCodingModels: Model<"anthropic-messages">[] = [
+		{
+			id: "kimi-for-coding",
+			name: "Kimi For Coding",
+			api: "anthropic-messages",
+			provider: "kimi-coding",
+			baseUrl: "https://api.kimi.com/coding",
+			headers: { ...KIMI_STATIC_HEADERS },
+			compat: { allowEmptySignature: true, forceAdaptiveThinking: true },
+			reasoning: true,
+			input: ["text", "image"],
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			contextWindow: 262144,
+			maxTokens: 32768,
+		},
+		{
+			id: "kimi-k2-thinking",
+			name: "Kimi K2 Thinking",
+			api: "anthropic-messages",
+			provider: "kimi-coding",
+			baseUrl: "https://api.kimi.com/coding",
+			headers: { ...KIMI_STATIC_HEADERS },
+			compat: { forceAdaptiveThinking: true },
+			reasoning: true,
+			input: ["text"],
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			contextWindow: 262144,
+			maxTokens: 32768,
+		},
+	];
+	for (const model of missingKimiCodingModels) {
+		if (!allModels.some((m) => m.provider === model.provider && m.id === model.id)) {
+			allModels.push(model);
+		}
+	}
+
 	const deepseekCompat: OpenAICompletionsCompat = {
 		requiresReasoningContentOnAssistantMessages: true,
 		thinkingFormat: "deepseek",

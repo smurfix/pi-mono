@@ -453,6 +453,7 @@ describe("AgentSession concurrent prompt guard", () => {
 					systemPromptOptions: BuildSystemPromptOptions,
 				) => Promise<undefined>;
 				invalidate: (message?: string) => void;
+				drainPostTurnActions: () => Promise<void>;
 			};
 		};
 		sessionWithRunner._extensionRunner = {
@@ -471,6 +472,7 @@ describe("AgentSession concurrent prompt guard", () => {
 			emitInput: async () => ({ action: "continue" }),
 			emitBeforeAgentStart: async () => undefined,
 			invalidate: () => {},
+			drainPostTurnActions: async () => {},
 		};
 
 		await session.prompt("hi");
@@ -598,6 +600,7 @@ describe("AgentSession concurrent prompt guard", () => {
 					systemPromptOptions: BuildSystemPromptOptions,
 				) => Promise<undefined>;
 				invalidate: (message?: string) => void;
+				drainPostTurnActions: () => Promise<void>;
 			};
 		};
 		sessionWithRunner._extensionRunner = {
@@ -612,6 +615,7 @@ describe("AgentSession concurrent prompt guard", () => {
 			emitInput: async () => ({ action: "continue" }),
 			emitBeforeAgentStart: async () => undefined,
 			invalidate: () => {},
+			drainPostTurnActions: async () => {},
 		};
 
 		await session.prompt("hi");

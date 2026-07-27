@@ -1,8 +1,12 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+const tsxHook = pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href;
 
 /**
  * Regression test for https://github.com/earendil-works/pi-mono/issues/2791
@@ -87,7 +91,7 @@ process.exit(0);
 		let stderr = "";
 		let exitCode: number;
 		try {
-			_stdout = execFileSync(process.execPath, [scriptPath], {
+			_stdout = execFileSync(process.execPath, ["--import", tsxHook, scriptPath], {
 				timeout: 10000,
 				encoding: "utf-8",
 				env: { ...process.env, PI_CODING_AGENT_DIR: agentDir },

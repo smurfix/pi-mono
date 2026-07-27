@@ -30,8 +30,10 @@ function readTrace(file: string): TraceEvent[] {
 }
 
 function makeWriter(file: string): (event: Record<string, unknown>) => void {
-	const stream = fs.createWriteStream(file, { flags: "a" });
-	return (event) => stream.write(`${JSON.stringify(event)}\n`);
+	// Synchronous writes so reads always observe every emitted event; an async
+	// WriteStream can leave the final response event unflushed when the test
+	// reads the file immediately after dispatch (previously racy).
+	return (event) => fs.appendFileSync(file, `${JSON.stringify(event)}\n`);
 }
 
 async function dispatchOnce(
