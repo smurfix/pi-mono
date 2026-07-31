@@ -4,13 +4,18 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ENV_AGENT_DIR } from "../src/config.ts";
+import { allowNetwork } from "./test-network-env.ts";
 
 const tsxHook = pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href;
 const cliPath = resolve(__dirname, "../src/cli.ts");
 
 const tempDirs: string[] = [];
+
+beforeEach(() => {
+	allowNetwork();
+});
 
 afterEach(() => {
 	for (const dir of tempDirs.splice(0)) {
