@@ -127,6 +127,8 @@ fi
 # --- deb -------------------------------------------------------------------
 
 git switch deb
+git merge intern/deb
+
 if git merge-base --is-ancestor main HEAD; then
   echo "main already merged into deb; skipping changelog update"
 else
