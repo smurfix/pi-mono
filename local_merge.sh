@@ -124,6 +124,20 @@ if ! git diff --quiet -- packages/ai/src/models.generated.ts \
                                 packages/ai/src/image-models.generated.ts
 fi
 
+# --- deb -------------------------------------------------------------------
+
+git switch deb
+if git merge-base --is-ancestor main HEAD; then
+  echo "main already merged into deb; skipping changelog update"
+else
+  git merge main
+  debchange -i
+  debchange --release smurf
+  git add debian/changelog
+  git commit --amend --no-edit -m "Merge $LATEST_TAG"
+fi
+debuild -b -us -uc
+
 # --- push ------------------------------------------------------------------
 
 git push intern
