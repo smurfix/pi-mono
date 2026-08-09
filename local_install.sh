@@ -2,7 +2,7 @@
 #
 # local_install.sh
 #
-# Merge the latest upstream release tag into the current branch, rebuild
+# Install locally. Set GLOBAL_PREFIX.
 # the workspace, and install the resulting coding-agent globally.
 #
 # Designed for a fork that tracks upstream via the "origin" remote:
@@ -17,83 +17,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-UPSTREAM_REMOTE="${UPSTREAM_REMOTE:-origin}"
-TAG_PATTERN="${TAG_PATTERN:-v*}"
-
 log() { printf '\n=== %s ===\n' "$*"; }
-
-# --- sanity checks --------------------------------------------------------
-
-if ! command -v git >/dev/null; then
-  echo "git not found" >&2; exit 1
-fi
-if ! command -v npm >/dev/null; then
-  echo "npm not found" >&2; exit 1
-fi
-if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  echo "not inside a git work tree" >&2; exit 1
-fi
-if ! git remote get-url "$UPSTREAM_REMOTE" >/dev/null 2>&1; then
-  echo "remote '$UPSTREAM_REMOTE' does not exist. Not merging." >&2
-  UPSTREAM_REMOTE=""
-fi
-
-CURRENT_BRANCH=$(git symbolic-ref --quiet --short HEAD || true)
-if [ -z "$CURRENT_BRANCH" ]; then
-  echo "detached HEAD; check out a branch first" >&2; exit 1
-fi
-
-# Refuse to run with a dirty work tree so that a merge conflict (or biome
-# auto-fixes during `npm run check`) cannot get tangled up with pre-existing
-# local edits.
-git restore \
-   package-lock.json \
-   packages/ai/src/models.generated.ts \
-   packages/coding-agent/npm-shrinkwrap.json \
-   packages/ai/src/image-models.generated.ts \
-   packages/ai/src/providers/*.models.ts
-   #
-if ! git diff --quiet || ! git diff --cached --quiet; then
-  echo "working tree has uncommitted changes; commit or stash first" >&2
-  git status --short >&2
-  exit 1
-fi
-
-# --- find and merge the latest upstream tag -------------------------------
-
-git fetch --tags intern
-git merge intern main
-
-if test -n "$UPSTREAM_REMOTE" ; then
-  log "Fetching tags from '$UPSTREAM_REMOTE'"
-  git fetch --tags --prune "$UPSTREAM_REMOTE"
-  
-  LATEST_TAG=$(git tag --list "$TAG_PATTERN" --sort=-v:refname | head -n1)
-  if [ -z "$LATEST_TAG" ]; then
-    echo "no tags matching '$TAG_PATTERN' found" >&2; exit 1
-  fi
-  echo "Latest tag: $LATEST_TAG"
-  echo "Current branch: $CURRENT_BRANCH"
-
-  if false # git merge-base --is-ancestor "$LATEST_TAG" HEAD
-  then
-    if [ "${FORCE:-0}" = "1" ]; then
-      echo "$LATEST_TAG already merged into $CURRENT_BRANCH; continuing because FORCE=1."
-    else
-      echo "$LATEST_TAG already merged into $CURRENT_BRANCH; nothing to do."
-      echo "Set FORCE=1 to rebuild and reinstall anyway."
-      exit 0
-    fi
-  else
-    log "Merging $LATEST_TAG into $CURRENT_BRANCH"
-    if ! git merge --no-edit --no-ff "$LATEST_TAG"; then
-      echo >&2
-      echo "merge conflict while merging $LATEST_TAG into $CURRENT_BRANCH" >&2
-      echo "resolve conflicts, commit, then rerun this script" >&2
-      exit 1
-    fi
-  fi
-fi
 
 # --- hydrate workspace ----------------------------------------------------
 
@@ -112,16 +36,6 @@ npm run build
 
 log "Running checks (npm run check)"
 npm run check
-
-# The build regenerates models.generated.ts / image-models.generated.ts.
-# Surface that so the user can decide whether to commit the deltas.
-if ! git diff --quiet -- packages/ai/src/models.generated.ts \
-                         packages/ai/src/image-models.generated.ts; then
-  echo
-  echo "note: regenerated model lists differ from the committed copies:"
-  git --no-pager diff --stat -- packages/ai/src/models.generated.ts \
-                                packages/ai/src/image-models.generated.ts
-fi
 
 # --- global install --------------------------------------------------------
 # `npm install -g ./packages/coding-agent` would resolve workspace sibling
@@ -198,8 +112,10 @@ for dep in "$INSTALL_DIR/node_modules/"*; do
 done
 
 # Now pi-coding-agent is self-contained.  Copy it into the global prefix.
-GLOBAL_PREFIX=$(npm prefix -g)
+test -v GLOBAL_PREFIX || GLOBAL_PREFIX=$(npm prefix -g)
+test -v REAL_PREFIX || REAL_PREFIX=$GLOBAL_PREFIX
 GLOBAL_NM="$GLOBAL_PREFIX/lib/node_modules"
+REAL_NM="$REAL_PREFIX/lib/node_modules"
 GLOBAL_BIN="$GLOBAL_PREFIX/bin"
 
 log "Installing into $GLOBAL_NM/@earendil-works/pi-coding-agent"
@@ -207,7 +123,7 @@ sudo rm -rf "$GLOBAL_NM/@earendil-works/pi-coding-agent"
 sudo mkdir -p "$GLOBAL_NM/@earendil-works"
 sudo cp -a "$INSTALL_DIR/node_modules/@earendil-works/pi-coding-agent" \
           "$GLOBAL_NM/@earendil-works/pi-coding-agent"
-sudo ln -sf "$GLOBAL_NM/@earendil-works/pi-coding-agent/dist/cli.js" "$GLOBAL_BIN/pi"
+sudo ln -sf "$REAL_NM/@earendil-works/pi-coding-agent/dist/cli.js" "$GLOBAL_BIN/pi"
 
 # --- push ------------------------------------------------------------------
 
