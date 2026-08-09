@@ -568,37 +568,30 @@ export const stream: StreamFunction<"anthropic-messages", AnthropicOptions> = (
 				...(options?.timeoutMs !== undefined ? { timeout: options.timeoutMs } : {}),
 				maxRetries: 0,
 			};
-			let response: Response;
-			try {
-				response = await retryProviderRequest(
-					() => client.messages.create({ ...params, stream: true }, requestOptions).asResponse(),
-					{
-						maxRetries: options?.maxRetries,
-						maxRetryDelayMs: options?.maxRetryDelayMs,
-						signal: options?.signal,
-					},
-				);
-			} catch (err) {
-				// Proxies/gateways that override baseUrl may not support the thinking
-				// parameter and can reject or mangle it (e.g. converting adaptive to
-				// enabled). When we get a 400 about unsupported thinking, retry without
-				// thinking/output_config so the model uses its default behavior.
-				if (params.thinking && params.thinking.type !== "disabled" && isThinkingUnsupportedError(err)) {
-					const retryParams = { ...params };
-					delete retryParams.thinking;
-					delete retryParams.output_config;
-					response = await retryProviderRequest(
-						() => client.messages.create({ ...retryParams, stream: true }, requestOptions).asResponse(),
-						{
-							maxRetries: options?.maxRetries,
-							maxRetryDelayMs: options?.maxRetryDelayMs,
-							signal: options?.signal,
-						},
-					);
-				} else {
-					throw err;
-				}
-			}
+			const response = await retryProviderRequest(
+				async (): Promise<Response> => {
+					try {
+						return await client.messages.create({ ...params, stream: true }, requestOptions).asResponse();
+					} catch (err) {
+						// Proxies/gateways that override baseUrl may not support the thinking
+						// parameter and can reject or mangle it (e.g. converting adaptive to
+						// enabled). When we get a 400 about unsupported thinking, retry without
+						// thinking/output_config so the model uses its default behavior.
+						if (params.thinking && params.thinking.type !== "disabled" && isThinkingUnsupportedError(err)) {
+							const retryParams = { ...params };
+							delete retryParams.thinking;
+							delete retryParams.output_config;
+							return await client.messages.create({ ...retryParams, stream: true }, requestOptions).asResponse();
+						}
+						throw err;
+					}
+				},
+				{
+					maxRetries: options?.maxRetries,
+					maxRetryDelayMs: options?.maxRetryDelayMs,
+					signal: options?.signal,
+				},
+			);
 			await options?.onResponse?.({ status: response.status, headers: headersToRecord(response.headers) }, model);
 			stream.push({ type: "start", partial: output });
 
@@ -623,7 +616,7 @@ export const stream: StreamFunction<"anthropic-messages", AnthropicOptions> = (
 					if (event.content_block.type === "text") {
 						const block: Block = {
 							type: "text",
-							text: "",
+							text: event.content_block.text ?? "",
 							index: event.index,
 						};
 						output.content.push(block);
@@ -631,8 +624,8 @@ export const stream: StreamFunction<"anthropic-messages", AnthropicOptions> = (
 					} else if (event.content_block.type === "thinking") {
 						const block: Block = {
 							type: "thinking",
-							thinking: "",
-							thinkingSignature: "",
+							thinking: event.content_block.thinking ?? "",
+							thinkingSignature: event.content_block.signature ?? "",
 							index: event.index,
 						};
 						output.content.push(block);
