@@ -25,7 +25,7 @@ rm -rf "$STAGE"
 mkdir -p "$TB" "$INSTALL" "$NM_DEST" "$BIN_DEST"
 
 # coding-agent plus the three workspace siblings it depends on.
-for pkg in tui ai agent coding-agent; do
+for pkg in tui telemetry ai agent protocol client coding-agent; do
 	(cd "$ROOT/packages/$pkg" && npm pack --pack-destination "$TB" >/dev/null)
 done
 
@@ -67,7 +67,7 @@ CA="$INSTALL/node_modules/@earendil-works/pi-coding-agent"
 CA_NM="$CA/node_modules"
 mkdir -p "$CA_NM/@earendil-works"
 
-for ws in pi-ai pi-tui pi-agent-core; do
+for ws in pi-ai pi-tui pi-agent-core pi-telemetry pi-protocol pi-client; do
 	src="$INSTALL/node_modules/@earendil-works/$ws"
 	[ -d "$src" ] && mv "$src" "$CA_NM/@earendil-works/$ws"
 done

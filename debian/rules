@@ -10,25 +10,31 @@ override_dh_auto_configure:
 
 override_dh_auto_build:
 	cd packages/tui && tsgo -p tsconfig.build.json
+	# Build the workspace closure the CLI needs, in dependency order:
+	# tui -> telemetry -> ai -> agent -> protocol -> client -> coding-agent.
+	# (server / sqlite-node are not imported by the CLI and are omitted.)
+	# Each package's types/exports resolve to ./dist, so a package must be
+	# built before any sibling that imports it.
+	cd packages/telemetry && tsgo -p tsconfig.build.json
 	# packages/ai imports per-provider model values from src/providers/data/*.json,
 	# which are generated (gitignored) and absent from a bare checkout. The full
 	# `npm run build` would also rewrite the committed *.models.ts /
-	# models.generated.ts catalogs (churning the tree on catalog drift) and fetch
-	# live model lists (network). Instead, when data/ is missing we materialise
-	# only the JSON values with `generate-models --json-only` (writes no .ts),
-	# then compile. When data/ is already present -- e.g. pre-generated in the
-	# source tarball on a buildd -- generation is skipped, so no network is needed.
+	# models.generated.ts catalogs (churning the tree on catalog drift). Instead,
+	# when data/ is missing we materialise only the per-provider JSON via
+	# `hydrate-model-data` (generate-models --data-only): it writes the api-grouped
+	# shape (Record<api, Record<modelId, model>>) that flattenModelCatalog
+	# consumes, fetches from models.dev, and touches no .ts. When data/ is already
+	# present -- e.g. pre-generated in the source tarball on a buildd -- generation
+	# is skipped.
 	cd packages/ai && if [ -z "$$(ls -A src/providers/data 2>/dev/null)" ]; then \
-		tmp=$$(mktemp -d) && \
-		npm run generate-models -- --json-only --json-output $$tmp && \
-		mkdir -p src/providers/data && \
-		cp $$tmp/providers/*.json src/providers/data/ && \
-		rm -rf $$tmp; \
+		npm run hydrate-model-data; \
 	fi && \
 	tsgo -p tsconfig.build.json && \
 	rm -rf dist/providers/data && \
 	cp -r src/providers/data dist/providers/data
 	cd packages/agent && tsgo -p tsconfig.build.json
+	cd packages/protocol && tsgo -p tsconfig.build.json
+	cd packages/client && tsgo -p tsconfig.build.json
 	cd packages/coding-agent && npm run build
 
 override_dh_auto_install:
