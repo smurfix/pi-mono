@@ -68,7 +68,7 @@ CA="$INSTALL/node_modules/@earendil-works/pi-coding-agent"
 CA_NM="$CA/node_modules"
 mkdir -p "$CA_NM/@earendil-works"
 
-for ws in pi-chord pi-ai pi-tui pi-agent-core pi-telemetry pi-protocol pi-client; do
+for ws in chord pi-ai pi-tui pi-agent-core pi-telemetry pi-protocol pi-client; do
 	src="$INSTALL/node_modules/@earendil-works/$ws"
 	[ -d "$src" ] && mv "$src" "$CA_NM/@earendil-works/$ws"
 done
