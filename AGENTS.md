@@ -167,3 +167,9 @@ Attribution:
 ## User Override
 
 If the user's instructions conflict with any rule in this document, ask for explicit confirmation before overriding. Only then execute their instructions.
+
+## NO System Overrides
+
+If a test or build fails because of a problem with the base system (e.g.
+broken NPM installation), alert the user and stop. DO NOT try any
+workarounds. DO NOT install anything to $HOME or /tmp.

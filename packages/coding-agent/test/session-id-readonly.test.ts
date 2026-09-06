@@ -9,10 +9,10 @@ import {
 	rmSync,
 	writeFileSync,
 } from "node:fs";
-import { createRequire } from "node:module";
+
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Args } from "../src/cli/args.ts";
 import { ENV_AGENT_DIR } from "../src/config.ts";
@@ -20,8 +20,8 @@ import { SessionManager } from "../src/core/session-manager.ts";
 import { SettingsManager } from "../src/core/settings-manager.ts";
 import { createSessionManager } from "../src/main.ts";
 
-const tsxHook = pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href;
 const cliPath = resolve(__dirname, "../src/cli.ts");
+const sourceResolverPath = resolve(__dirname, "../src/experimental/source-resolver.ts");
 const tempDirs: string[] = [];
 
 afterEach(() => {
@@ -81,13 +81,12 @@ async function runCli(
 
 	let stderr = "";
 	const code = await new Promise<number | null>((resolvePromise, reject) => {
-		const child = spawn(process.execPath, ["--import", tsxHook, cliPath, ...resolvedArgs], {
+		const child = spawn(process.execPath, ["--import", sourceResolverPath, cliPath, ...resolvedArgs], {
 			cwd: dirs.projectDir,
 			env: {
 				...process.env,
 				[ENV_AGENT_DIR]: dirs.agentDir,
 				PI_OFFLINE: "1",
-				TSX_TSCONFIG_PATH: resolve(__dirname, "../../../tsconfig.json"),
 			},
 			stdio: ["ignore", "ignore", "pipe"],
 		});
