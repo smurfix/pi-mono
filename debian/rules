@@ -9,9 +9,12 @@ override_dh_auto_configure:
 	npm install --ignore-scripts
 
 override_dh_auto_build:
+	# chord is the application-composition runtime imported by agent (and
+	# coding-agent); it has no workspace siblings, so build it first.
+	cd packages/chord && tsgo -p tsconfig.build.json
 	cd packages/tui && tsgo -p tsconfig.build.json
 	# Build the workspace closure the CLI needs, in dependency order:
-	# tui -> telemetry -> ai -> agent -> protocol -> client -> coding-agent.
+	# chord -> tui -> telemetry -> ai -> agent -> protocol -> client -> coding-agent.
 	# (server / sqlite-node are not imported by the CLI and are omitted.)
 	# Each package's types/exports resolve to ./dist, so a package must be
 	# built before any sibling that imports it.

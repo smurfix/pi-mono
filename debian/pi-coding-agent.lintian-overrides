@@ -2,3 +2,5 @@ pi-coding-agent binary: no-manual-page
 pi-coding-agent binary: embedded-javascript-library
 pi-coding-agent binary: script-not-executable
 pi-coding-agent binary: executable-not-elf-or-script
+# esbuild vendors a prebuilt, statically-linked x86-64 ELF; we don't build it.
+pi-coding-agent binary: statically-linked-binary
