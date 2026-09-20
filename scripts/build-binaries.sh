@@ -151,10 +151,14 @@ for platform in "${PLATFORMS[@]}"; do
     cp -r examples "$OUTPUT_DIR/$platform/"
 
     # Copy the selected architecture's native platform helpers next to the executable.
+    # Linux helpers are omitted on purpose: pi never targets X11 or XWayland,
+    # so only darwin and win32 bundles ship native addons.
     native_platform="${platform/windows-/win32-}"
     native_path="native/${native_platform%-*}/prebuilds"
-    mkdir -p "$OUTPUT_DIR/$platform/$native_path"
-    cp -R "../tui/$native_path/$native_platform" "$OUTPUT_DIR/$platform/$native_path/"
+    if [ -d "../tui/$native_path/$native_platform" ]; then
+        mkdir -p "$OUTPUT_DIR/$platform/$native_path"
+        cp -R "../tui/$native_path/$native_platform" "$OUTPUT_DIR/$platform/$native_path/"
+    fi
 done
 
 # Create archives

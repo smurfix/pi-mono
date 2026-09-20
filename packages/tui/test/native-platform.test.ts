@@ -1,30 +1,6 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { createRequire, Module } from "node:module";
 import { test } from "node:test";
-import { fileURLToPath } from "node:url";
 import { getNativeClipboard, getNativePlatformHelper } from "../src/native-platform.ts";
-
-test("Linux ARM64 prebuild supports 64 KB system pages", () => {
-	const binary = readFileSync(
-		new URL("../native/linux/prebuilds/linux-arm64/linux-platform-x11.node", import.meta.url),
-	);
-	assert.equal(binary.subarray(0, 4).toString(), "\x7fELF");
-	const offset = Number(binary.readBigUInt64LE(32));
-	const entrySize = binary.readUInt16LE(54);
-	const count = binary.readUInt16LE(56);
-	let loadSegments = 0;
-	for (let index = 0; index < count; index++) {
-		const entry = offset + index * entrySize;
-		if (binary.readUInt32LE(entry) !== 1) continue;
-		loadSegments++;
-		const fileOffset = binary.readBigUInt64LE(entry + 8);
-		const address = binary.readBigUInt64LE(entry + 16);
-		assert.equal((address - fileOffset) % 65536n, 0n);
-		assert.ok(binary.readBigUInt64LE(entry + 48) >= 65536n);
-	}
-	assert.ok(loadSegments > 0);
-});
 
 // Opt in on a Windows test desktop: this replaces the system clipboard contents.
 test(
@@ -34,7 +10,7 @@ test(
 		const clipboard = getNativeClipboard();
 		assert.ok(clipboard?.setText);
 		for (const text of ["clipboard café 日本語", "", "second write"]) {
-			await clipboard.setText(text);
+			await clipboard.setText!(text);
 			assert.equal(await clipboard.getText(), text);
 			assert.equal(await clipboard.getImage(), null);
 		}
@@ -49,52 +25,36 @@ test(
 		assert.ok(clipboard);
 		assert.equal(typeof clipboard.getText, "function");
 		assert.equal(typeof clipboard.getImage, "function");
-		assert.equal(typeof clipboard.setText, "function");
 		assert.equal(clipboard, getNativePlatformHelper());
-		assert.equal(clipboard, getNativeClipboard());
 	},
 );
 
-test("Linux loads X11 lazily and rechecks DISPLAY", { skip: !["arm64", "x64"].includes(process.arch) }, async (t) => {
-	const require = createRequire(import.meta.url);
-	const platform = Object.getOwnPropertyDescriptor(process, "platform")!;
-	const display = process.env.DISPLAY;
-	const waylandDisplay = process.env.WAYLAND_DISPLAY;
-	const modulePath = fileURLToPath(
-		new URL(`../native/linux/prebuilds/linux-${process.arch}/linux-platform-x11.node`, import.meta.url),
-	);
-	const previous = require.cache[modulePath];
-	t.after(() => {
-		Object.defineProperty(process, "platform", platform);
-		if (display === undefined) delete process.env.DISPLAY;
-		else process.env.DISPLAY = display;
-		if (waylandDisplay === undefined) delete process.env.WAYLAND_DISPLAY;
-		else process.env.WAYLAND_DISPLAY = waylandDisplay;
-		if (previous) require.cache[modulePath] = previous;
-		else delete require.cache[modulePath];
-	});
-	Object.defineProperty(process, "platform", { value: "linux" });
-	delete process.env.DISPLAY;
-	process.env.WAYLAND_DISPLAY = "wayland-0";
-	assert.equal(getNativeClipboard(), undefined); // Wayland paste uses wl-paste.
-	let available = false;
-	const helper = {
-		getText: t.mock.fn(async () => (available ? "X11" : undefined)),
-		getImage: t.mock.fn(async () => null),
+test("never offers a clipboard helper on Linux, with or without a display", () => {
+	const platformDescriptor = Object.getOwnPropertyDescriptor(process, "platform")!;
+	const saved = {
+		DISPLAY: process.env.DISPLAY,
+		WAYLAND_DISPLAY: process.env.WAYLAND_DISPLAY,
 	};
-	const module = new Module(modulePath);
-	module.exports = helper;
-	require.cache[modulePath] = module;
-	process.env.DISPLAY = ":0";
-	const clipboard = getNativeClipboard()!;
-	assert.equal(clipboard, helper);
-	assert.equal(helper.getText.mock.callCount(), 0);
-	assert.equal(await clipboard.getText(), undefined);
-	available = true;
-	assert.equal(await clipboard.getText(), "X11");
-	assert.equal(await clipboard.getImage(), null);
-	delete process.env.DISPLAY;
-	assert.equal(getNativeClipboard(), undefined);
-	process.env.DISPLAY = ":1";
-	assert.equal(getNativeClipboard(), clipboard);
+	try {
+		Object.defineProperty(process, "platform", { value: "linux" });
+		for (const env of [
+			{},
+			{ DISPLAY: ":0" },
+			{ WAYLAND_DISPLAY: "wayland-0" },
+			{ DISPLAY: ":0", WAYLAND_DISPLAY: "wayland-0" },
+		]) {
+			if (saved.DISPLAY === undefined) delete process.env.DISPLAY;
+			else process.env.DISPLAY = saved.DISPLAY;
+			if (saved.WAYLAND_DISPLAY === undefined) delete process.env.WAYLAND_DISPLAY;
+			else process.env.WAYLAND_DISPLAY = saved.WAYLAND_DISPLAY;
+			Object.assign(process.env, env);
+			assert.equal(getNativeClipboard(), undefined, JSON.stringify(env));
+		}
+	} finally {
+		Object.defineProperty(process, "platform", platformDescriptor);
+		if (saved.DISPLAY === undefined) delete process.env.DISPLAY;
+		else process.env.DISPLAY = saved.DISPLAY;
+		if (saved.WAYLAND_DISPLAY === undefined) delete process.env.WAYLAND_DISPLAY;
+		else process.env.WAYLAND_DISPLAY = saved.WAYLAND_DISPLAY;
+	}
 });

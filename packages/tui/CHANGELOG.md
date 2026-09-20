@@ -8,6 +8,7 @@
 
 ### Changed
 
+- Removed the Linux/X11 native clipboard helper, its prebuilds, and its tests. `getNativeClipboard()` still serves the macOS and Windows helpers and returns `undefined` on Linux regardless of display.
 - Reduced fuzzy search latency for long texts by using native substring search instead of scanning each character in JavaScript ([#9267](https://github.com/earendil-works/pi/issues/9267)).
 
 ### Fixed
