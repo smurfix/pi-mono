@@ -1,7 +1,12 @@
 import type * as ChildProcess from "node:child_process";
 import type * as Fs from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ensureTool, getLatestVersion, type ToolStatus } from "../src/utils/tools-manager.ts";
+import {
+	buildArgumentGuardLauncher,
+	ensureTool,
+	getLatestVersion,
+	type ToolStatus,
+} from "../src/utils/tools-manager.ts";
 
 const originalOffline = process.env.PI_OFFLINE;
 
@@ -138,5 +143,65 @@ describe("ensureTool", () => {
 				message: "Failed to download fd: fetch failed: connect ETIMEDOUT 140.82.113.3:443",
 			},
 		]);
+	});
+});
+
+describe("buildArgumentGuardLauncher", () => {
+	it("generates a POSIX launcher delegating to the real path", () => {
+		const script = buildArgumentGuardLauncher("/opt/managed/rg.real");
+		expect(script.startsWith("#!/bin/sh")).toBe(true);
+		expect(script).toContain("exec_real='/opt/managed/rg.real'");
+		expect(script).toContain('exec "$exec_real" "$@"');
+	});
+
+	it("quotes apostrophes in the real path", () => {
+		const script = buildArgumentGuardLauncher("/odd'path/rg.real");
+		// Shell single-quote escaping of the embedded apostrophe.
+		expect(script).toContain("exec_real='/odd'");
+		expect(script).toContain("\\''path/rg.real'");
+	});
+
+	// Spawns the generated launcher with representative argv and reports the
+	// delegated process's view (via a stand-in executable echoing argv as JSON).
+	function spawnLauncher(argv: string[]): { status: number; stderr: string; stdout: string } {
+		const { mkdtempSync, writeFileSync } = require("node:fs") as typeof Fs;
+		const { spawnSync } = require("node:child_process") as typeof ChildProcess;
+		const tmp = mkdtempSync("/tmp/pi-launchertest-");
+		const realPath = `${tmp}/rg.real`;
+		const launcherPath = `${tmp}/rg`;
+		writeFileSync(realPath, "#!/usr/bin/env node\nconsole.log(JSON.stringify(process.argv.slice(2)));\n", {
+			mode: 0o755,
+		});
+		writeFileSync(launcherPath, buildArgumentGuardLauncher(realPath), { mode: 0o755 });
+		const result = spawnSync(launcherPath, argv, { encoding: "utf8" });
+		const status = result.status ?? -1;
+		const stderr = result.stderr ?? "";
+		const stdout = result.stdout ?? "";
+		return { status, stderr, stdout };
+	}
+
+	it("passes boolean clusters through untouched", () => {
+		const r = spawnLauncher(["-in", "--smart-case", "pat", "file"]);
+		expect(r.status).toBe(0);
+		expect(JSON.parse(r.stdout.trim())).toEqual(["-in", "--smart-case", "pat", "file"]);
+	});
+
+	it("allows -r with separated value", () => {
+		const r = spawnLauncher(["-r", "X", "pat", "file"]);
+		expect(r.status).toBe(0);
+		expect(JSON.parse(r.stdout.trim())).toEqual(["-r", "X", "pat", "file"]);
+	});
+
+	it("refuses a glued cluster attaching a value to -r", () => {
+		const r = spawnLauncher(["-rn", "pat", "file"]);
+		expect(r.status).toBe(2);
+		expect(r.stderr).toMatch(/-r n/);
+		expect(r.stdout).toBe("");
+	});
+
+	it("stops scanning at the operand separator", () => {
+		const r = spawnLauncher(["--", "-rn", "pat"]);
+		expect(r.status).toBe(0);
+		expect(JSON.parse(r.stdout.trim())).toEqual(["--", "-rn", "pat"]);
 	});
 });
