@@ -29,7 +29,7 @@ override_dh_auto_build:
 	# consumes, fetches from models.dev, and touches no .ts. When data/ is already
 	# present -- e.g. pre-generated in the source tarball on a buildd -- generation
 	# is skipped.
-	cd packages/ai && if [ -z "$$(ls -A src/providers/data 2>/dev/null)" ]; then \
+	cd packages/ai && if ! node scripts/check-model-data.ts >/dev/null; then \
 		npm run hydrate-model-data; \
 	fi && \
 	tsgo -p tsconfig.build.json && \
@@ -48,6 +48,14 @@ override_dh_clean:
 	# Remove custom staging/build dirs that dh_clean does not know about,
 	# so the tree is pristine for source packaging and the next build.
 	rm -rf debian/.stage debian/.test-home debian/pi-coding-agent debian/tmp
+
+# Don't.
+#
+override_dh_strip:
+
+override_dh_dwz:
+
+override_dh_shlibdeps:
 
 override_dh_auto_test:
 	# The upstream suite needs Node's TypeScript stripper, which Debian's
