@@ -1,5 +1,14 @@
 import { type SpawnSyncReturns, spawnSync } from "child_process";
-import { chmodSync, createWriteStream, existsSync, mkdirSync, readdirSync, renameSync, rmSync } from "fs";
+import {
+	chmodSync,
+	createWriteStream,
+	existsSync,
+	mkdirSync,
+	readdirSync,
+	renameSync,
+	rmSync,
+	writeFileSync,
+} from "fs";
 import { arch, platform } from "os";
 import { join } from "path";
 import { Readable } from "stream";
@@ -216,6 +225,65 @@ function getWindowsTarCommand(): string {
 	return "tar.exe";
 }
 
+// Managed binaries that suffer from glued short-option clusters get a tiny
+// shell launcher placed where callers expect the real binary; the authentic
+// executable moves aside under this suffix.
+const LAUNCHER_REAL_BINARY_SUFFIX = ".real";
+
+/**
+ * Build the argument-guard launcher for one managed binary.
+ *
+ * Problem: rg parses the glued cluster `-rn` as `-r n` (--replace with the
+ * literal value "n"), so a grep-habitual `rg -rn PAT dir` silently swaps
+ * every match for the letter "n".
+ *
+ * Solution: the launcher scans leading short-option clusters and refuses
+ * any cluster that glues characters after `r` (a value-bearing short option);
+ * it tells the caller to pass the value separately (`-r n`). Boolean-only
+ * clusters, bare `-r` followed by its value as the next argument, long
+ * options (whose glued values are explicit: `--replace=n`), operands, and
+ * everything after a `--` terminator pass through untouched.
+ */
+export function buildArgumentGuardLauncher(realExecutablePath: string): string {
+	const escapedRealPath = realExecutablePath.replaceAll("'", `'\\''`);
+	return [
+		"#!/bin/sh",
+		"# Launcher installed by pi. Guards against glued short-option clusters:",
+		"# upstream would eat `-rn` as `--replace n`. Put replacement values in",
+		"# their own argument (`-r n`); boolean clusters behave normally.",
+		`exec_real='${escapedRealPath}'`,
+		'if [ ! -x "$exec_real" ]; then',
+		'\techo "launcherguard: missing guarded executable $exec_real" >&2',
+		"\texit 127",
+		"fi",
+		"for arg do",
+		'\tcase "$arg" in',
+		"\t--) break ;;",
+		"\t\t-r?*|-[!-]?*r?*)",
+		"\t\techo \"launcherguard: refusing glued cluster '$arg'; pass the replacement separately: -r n\" >&2",
+		"\t\texit 2",
+		"\t\t;;",
+		"\tesac",
+		"done",
+		'exec "$exec_real" "$@"',
+		"",
+	].join("\n");
+}
+
+/**
+ * Swap a freshly extracted binary for its guard launcher in place: the
+ * real executable moves to `<path>${LAUNCHER_REAL_BINARY_SUFFIX}`, the
+ * launcher takes the original path. Renaming over an existing `.real`
+ * file (from a previous install) replaces it, so reinstalling works.
+ * Must not be used with .exe targets; there is no portable interpreter.
+ */
+function installArgumentGuardLauncher(executablePath: string): void {
+	const realExecutablePath = executablePath + LAUNCHER_REAL_BINARY_SUFFIX;
+	renameSync(executablePath, realExecutablePath);
+	chmodSync(realExecutablePath, 0o755);
+	writeFileSync(executablePath, buildArgumentGuardLauncher(realExecutablePath), { mode: 0o755 });
+}
+
 function extractZipArchive(archivePath: string, extractDir: string, assetName: string): void {
 	const failures: string[] = [];
 
@@ -317,9 +385,15 @@ async function downloadTool(tool: "fd" | "rg"): Promise<string> {
 			throw new Error(`Binary not found in archive: expected ${binaryFileName} under ${extractDir}`);
 		}
 
-		// Make executable (Unix only)
-		if (plat !== "win32") {
+		// Windows keeps the bare binary; there is no interpreter for a launcher
+		// script beside an .exe. rg additionally routes through the
+		// argument-guard launcher (see buildArgumentGuardLauncher); fd shares
+		// this downloader but has no analogous glued-value footgun, so it gets
+		// the plain binary.
+		if (plat === "win32" || tool !== "rg") {
 			chmodSync(binaryPath, 0o755);
+		} else {
+			installArgumentGuardLauncher(binaryPath);
 		}
 	} finally {
 		// Cleanup

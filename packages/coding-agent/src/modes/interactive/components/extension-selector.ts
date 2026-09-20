@@ -15,6 +15,7 @@ export interface ExtensionSelectorOptions {
 	onToggleToolsExpanded?: () => void;
 	/** Zero-based index of the initially highlighted option. Clamped to range. */
 	initialIndex?: number;
+	description?: string;
 }
 
 export class ExtensionSelectorComponent extends Container {
@@ -52,6 +53,10 @@ export class ExtensionSelectorComponent extends Container {
 
 		this.titleText = new Text(theme.fg("accent", theme.bold(title)), 1, 0);
 		this.addChild(this.titleText);
+		if (opts?.description) {
+			this.addChild(new Spacer(1));
+			this.addChild(new Text(theme.fg("text", opts.description), 1, 0));
+		}
 		this.addChild(new Spacer(1));
 
 		if (opts?.timeout && opts.timeout > 0 && opts.tui) {
