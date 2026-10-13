@@ -1,3 +1,9 @@
+pi-coding-agent (1.2.0.0) UNRELEASED; urgency=medium
+
+  * Merge main
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Tue, 13 Oct 2026 17:37:38 +0200
+
 pi-coding-agent (1.1.0.0) smurf; urgency=medium
 
   * Merge main
