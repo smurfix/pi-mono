@@ -11,14 +11,14 @@ override_dh_auto_configure:
 override_dh_auto_build:
 	# chord is the application-composition runtime imported by agent (and
 	# coding-agent); it has no workspace siblings, so build it first.
-	cd packages/chord && tsgo -p tsconfig.build.json
-	cd packages/tui && tsgo -p tsconfig.build.json
+	cd packages/chord && tsc -p tsconfig.build.json
+	cd packages/tui && tsc -p tsconfig.build.json
 	# Build the workspace closure the CLI needs, in dependency order:
-	# chord -> tui -> telemetry -> ai -> agent -> protocol -> client -> coding-agent.
-	# (server / sqlite-node are not imported by the CLI and are omitted.)
+	# chord -> tui -> telemetry -> ai -> agent -> protocol -> client ->
+	# codemode -> mcp -> server -> durable -> env -> coding-agent.
 	# Each package's types/exports resolve to ./dist, so a package must be
 	# built before any sibling that imports it.
-	cd packages/telemetry && tsgo -p tsconfig.build.json
+	cd packages/telemetry && tsc -p tsconfig.build.json
 	# packages/ai imports per-provider model values from src/providers/data/*.json,
 	# which are generated (gitignored) and absent from a bare checkout. The full
 	# `npm run build` would also rewrite the committed *.models.ts /
@@ -29,15 +29,22 @@ override_dh_auto_build:
 	# consumes, fetches from models.dev, and touches no .ts. When data/ is already
 	# present -- e.g. pre-generated in the source tarball on a buildd -- generation
 	# is skipped.
-	cd packages/ai && if ! node scripts/check-model-data.ts >/dev/null; then \
-		npm run hydrate-model-data; \
+	cd packages/ai && if test -f src/providers/data/openai.json; then \
+		echo "providers/data already hydrated; skipping model generation"; \
+	else \
+		node scripts/check-model-data.ts || node_modules/.bin/tsx scripts/generate-models.ts --strict --data-only; \
 	fi && \
-	tsgo -p tsconfig.build.json && \
+	tsc -p tsconfig.build.json && \
 	rm -rf dist/providers/data && \
 	cp -r src/providers/data dist/providers/data
-	cd packages/agent && tsgo -p tsconfig.build.json
-	cd packages/protocol && tsgo -p tsconfig.build.json
-	cd packages/client && tsgo -p tsconfig.build.json
+	cd packages/agent && tsc -p tsconfig.build.json
+	cd packages/protocol && tsc -p tsconfig.build.json
+	cd packages/client && tsc -p tsconfig.build.json
+	cd packages/codemode && tsc -p tsconfig.build.json
+	cd packages/mcp && tsc -p tsconfig.build.json
+	cd packages/server && tsc -p tsconfig.build.json
+	cd packages/durable && tsc -p tsconfig.build.json
+	cd packages/env && tsc -p tsconfig.build.json
 	cd packages/coding-agent && npm run build
 
 override_dh_auto_install:
