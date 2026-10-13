@@ -9,16 +9,17 @@ override_dh_auto_configure:
 	npm install --ignore-scripts
 
 override_dh_auto_build:
-	# chord is the application-composition runtime imported by agent (and
-	# coding-agent); it has no workspace siblings, so build it first.
-	cd packages/chord && tsc -p tsconfig.build.json
-	cd packages/tui && tsc -p tsconfig.build.json
 	# Build the workspace closure the CLI needs, in dependency order:
-	# chord -> tui -> telemetry -> ai -> agent -> protocol -> client ->
-	# codemode -> mcp -> server -> durable -> env -> coding-agent.
+	# tui -> telemetry -> codemode -> mcp -> ai -> agent -> coding-agent.
+	# Upstream 1.2.0 removed the experimental server stack: chord, durable,
+	# env, protocol, client, and server are no longer in coding-agent's
+	# dependency closure, so they are not built here.
 	# Each package's types/exports resolve to ./dist, so a package must be
 	# built before any sibling that imports it.
+	cd packages/tui && tsc -p tsconfig.build.json
 	cd packages/telemetry && tsc -p tsconfig.build.json
+	cd packages/codemode && tsc -p tsconfig.build.json
+	cd packages/mcp && tsc -p tsconfig.build.json
 	# packages/ai imports per-provider model values from src/providers/data/*.json,
 	# which are generated (gitignored) and absent from a bare checkout. The full
 	# `npm run build` would also rewrite the committed *.models.ts /
@@ -38,13 +39,9 @@ override_dh_auto_build:
 	rm -rf dist/providers/data && \
 	cp -r src/providers/data dist/providers/data
 	cd packages/agent && tsc -p tsconfig.build.json
-	cd packages/protocol && tsc -p tsconfig.build.json
-	cd packages/client && tsc -p tsconfig.build.json
-	cd packages/codemode && tsc -p tsconfig.build.json
-	cd packages/mcp && tsc -p tsconfig.build.json
-	cd packages/server && tsc -p tsconfig.build.json
-	cd packages/durable && tsc -p tsconfig.build.json
-	cd packages/env && tsc -p tsconfig.build.json
+	# coding-agent's npm run build compiles the unbundled dist/ tree and
+	# then the esbuild bundle in dist/bundle/ that package.json's bin
+	# (and our /usr/bin/pi launcher) points at.
 	cd packages/coding-agent && npm run build
 
 override_dh_auto_install:
@@ -54,7 +51,11 @@ override_dh_clean:
 	dh_clean
 	# Remove custom staging/build dirs that dh_clean does not know about,
 	# so the tree is pristine for source packaging and the next build.
-	rm -rf debian/.stage debian/.test-home debian/pi-coding-agent debian/tmp
+	# packages/*/dist too: tsc does not clean outDir, so stale output from a
+	# previous tree state (e.g. removed upstream packages) would otherwise
+	# leak into the staged module tree via npm pack.
+	rm -rf debian/.stage debian/.test-home debian/pi-coding-agent debian/tmp \
+		packages/*/dist
 
 # Don't.
 #
@@ -71,9 +72,11 @@ override_dh_auto_test:
 	# sources, so neither can run on buildds. Smoke-test the built CLI instead;
 	# the full suite runs in upstream CI.
 	mkdir -p $(CURDIR)/debian/.test-home
-	HOME=$(CURDIR)/debian/.test-home node packages/coding-agent/dist/cli.js --version
+	HOME=$(CURDIR)/debian/.test-home node packages/coding-agent/dist/bundle/cli.js --version
 
 override_dh_fixperms:
 	dh_fixperms
+	chmod 0755 debian/pi-coding-agent/usr/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js
+	chmod 0755 debian/pi-coding-agent/usr/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/rpc-entry.js
 	chmod 0755 debian/pi-coding-agent/usr/lib/node_modules/@earendil-works/pi-coding-agent/dist/cli.js
 	chmod 0755 debian/pi-coding-agent/usr/lib/node_modules/@earendil-works/pi-coding-agent/dist/rpc-entry.js

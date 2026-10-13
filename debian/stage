@@ -24,9 +24,10 @@ BIN_DEST="$DESTUSR/bin"
 rm -rf "$STAGE"
 mkdir -p "$TB" "$INSTALL" "$NM_DEST" "$BIN_DEST"
 
-# coding-agent plus the workspace siblings it depends on (chord joined
-# the closure in 0.85.x; codemode/mcp/server/durable/env joined later).
-for pkg in chord tui telemetry ai agent protocol client codemode mcp server durable env coding-agent; do
+# coding-agent plus the workspace siblings it depends on. Upstream 1.2.0
+# removed the experimental server stack: chord, durable, env, protocol,
+# client, and server are no longer packed.
+for pkg in tui telemetry codemode mcp ai agent coding-agent; do
 	(cd "$ROOT/packages/$pkg" && npm pack --pack-destination "$TB" >/dev/null)
 done
 
@@ -68,8 +69,7 @@ CA="$INSTALL/node_modules/@earendil-works/pi-coding-agent"
 CA_NM="$CA/node_modules"
 mkdir -p "$CA_NM/@earendil-works"
 
-for ws in chord pi-ai pi-tui pi-agent-core pi-telemetry pi-protocol pi-client \
-	pi-codemode pi-mcp pi-server pi-durable pi-env; do
+for ws in pi-ai pi-tui pi-agent-core pi-telemetry pi-codemode pi-mcp; do
 	src="$INSTALL/node_modules/@earendil-works/$ws"
 	[ -d "$src" ] && mv "$src" "$CA_NM/@earendil-works/$ws"
 done
@@ -97,5 +97,5 @@ find "$CA" -type f \( -name '.npmignore' -o -name '.eslintrc' \
 
 rm -rf "$NM_DEST/pi-coding-agent"
 cp -a "$CA" "$NM_DEST/pi-coding-agent"
-ln -sf ../lib/node_modules/@earendil-works/pi-coding-agent/dist/cli.js \
+ln -sf ../lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js \
 	"$BIN_DEST/pi"
